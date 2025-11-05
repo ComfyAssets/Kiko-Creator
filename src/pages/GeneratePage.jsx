@@ -363,22 +363,38 @@ export default function GeneratePage() {
         if (response.ok) {
           const data = await response.json();
           if (data.loras && data.loras.length > 0) {
+            // Get existing LoRAs from state (loaded from database with trigger words)
+            const existingLoras = useSettingsStore.getState().models.loras || [];
+
+            // Create a map of existing LoRAs by name for quick lookup
+            const existingLorasMap = new Map();
+            existingLoras.forEach(lora => {
+              existingLorasMap.set(lora.name, lora);
+            });
+
             // Transform loras into model objects that SearchableModelDropdown expects
+            // Merge with existing data to preserve trigger words from database
             const loraModels = data.loras.map((lora) => {
               const parts = (lora.path || lora.name).split("/");
               const name = parts[parts.length - 1];
               const folder =
                 parts.length > 1 ? parts.slice(0, -1).join("/") : "";
+
+              // Check if we have this LoRA in our database
+              const existingLora = existingLorasMap.get(lora.name || lora.path) ||
+                                   existingLorasMap.get(name);
+
               return {
                 type: "lora",
                 name: lora.name || lora.path,
                 folder: folder,
                 path: lora.path || lora.name,
-                triggerWords: lora.triggerWords || [],
-                description: lora.description,
-                baseModel: lora.baseModel,
-                civitai: lora.civitai || {},
-                metadata: null,
+                // Preserve trigger words from database, fall back to ComfyUI data
+                triggerWords: existingLora?.triggerWords || lora.triggerWords || [],
+                description: existingLora?.description || lora.description,
+                baseModel: existingLora?.baseModel || lora.baseModel,
+                civitai: existingLora?.civitai || lora.civitai || {},
+                metadata: existingLora?.metadata || null,
               };
             });
 
@@ -388,7 +404,7 @@ export default function GeneratePage() {
             console.log(
               "✅ Synced LoRAs from ComfyUI:",
               loraModels.length,
-              "models",
+              "models (preserving database metadata)",
             );
           }
         } else {
@@ -966,11 +982,15 @@ export default function GeneratePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {loraSlots.map((slot) => (
-                  <div key={slot.id} className="bg-bg-tertiary/50 backdrop-blur-sm rounded-lg p-4 border border-border-primary relative z-40">
+                {loraSlots.map((slot, index) => (
+                  <div 
+                    key={slot.id} 
+                    className="bg-bg-tertiary/50 backdrop-blur-sm rounded-lg p-4 border border-border-primary relative"
+                    style={{ zIndex: 50 - index }}
+                  >
                     <div className="flex items-start gap-3">
                       <div className="flex-1 space-y-3">
-                        <div className="relative z-50">
+                        <div className="relative" style={{ zIndex: 10 }}>
                           <SearchableModelDropdown
                             models={models.loras}
                             value={slot.lora}

@@ -15,6 +15,7 @@ import {
   needsUpdate
 } from '../db/index.js'
 import progressTracker from './progress.js'
+import { readLoraManagerMetadata } from '../utils/safetensors.js'
 
 // Test ComfyUI API connection
 export async function testConnection(apiUrl) {
@@ -385,6 +386,34 @@ async function scanModelDirectory(directories, extensions, options = {}) {
                   stats: cachedModel.stats
                 }
               }
+
+              // Check for LoRA Manager metadata if cached model has no trigger words (only for LoRAs)
+              if (type === 'lora' && (!cachedModel.trained_words || cachedModel.trained_words.length === 0)) {
+                try {
+                  const loraManagerData = readLoraManagerMetadata(filePath)
+                  if (loraManagerData && loraManagerData.civitai && loraManagerData.civitai.trainedWords) {
+                    const triggerWords = loraManagerData.civitai.trainedWords
+                    console.log(`🎯 Found trigger words in LoRA Manager metadata (cached model): ${file.name}`)
+
+                    // Update metadata with trigger words
+                    if (model.metadata) {
+                      model.metadata.trainedWords = triggerWords
+                    } else {
+                      model.metadata = { trainedWords: triggerWords }
+                    }
+
+                    // Update database with new trigger words
+                    try {
+                      const modelId = cachedModel.id
+                      upsertCivitAIMetadata(modelId, { trainedWords: triggerWords })
+                    } catch (error) {
+                      console.warn(`⚠️  Failed to update trigger words in DB for ${file.name}:`, error.message)
+                    }
+                  }
+                } catch (error) {
+                  console.warn(`⚠️  Failed to read LoRA Manager metadata for cached model ${file.name}:`, error.message)
+                }
+              }
             } else {
               // Calculate hash if requested or needed
               if (calculateHashes) {
@@ -395,6 +424,20 @@ async function scanModelDirectory(directories, extensions, options = {}) {
                 } catch (error) {
                   console.warn(`⚠️  Failed to hash ${file.name}:`, error.message)
                   model.hash = null
+                }
+              }
+
+              // Try to read LoRA Manager metadata for trigger words (only for LoRAs)
+              let loraManagerTriggerWords = null
+              if (type === 'lora') {
+                try {
+                  const loraManagerData = readLoraManagerMetadata(filePath)
+                  if (loraManagerData && loraManagerData.civitai && loraManagerData.civitai.trainedWords) {
+                    loraManagerTriggerWords = loraManagerData.civitai.trainedWords
+                    console.log(`🎯 Found trigger words in LoRA Manager metadata: ${file.name}`)
+                  }
+                } catch (error) {
+                  console.warn(`⚠️  Failed to read LoRA Manager metadata for ${file.name}:`, error.message)
                 }
               }
 
@@ -409,7 +452,10 @@ async function scanModelDirectory(directories, extensions, options = {}) {
                     modelName: modelByHash.civitai_model_name,
                     description: modelByHash.description,
                     baseModel: modelByHash.base_model,
-                    trainedWords: modelByHash.trained_words,
+                    // Use LoRA Manager trigger words if available and DB has none
+                    trainedWords: modelByHash.trained_words && modelByHash.trained_words.length > 0
+                      ? modelByHash.trained_words
+                      : (loraManagerTriggerWords || modelByHash.trained_words),
                     images: modelByHash.images,
                     thumbnailPath: modelByHash.thumbnail_path,
                     stats: modelByHash.stats
@@ -422,6 +468,12 @@ async function scanModelDirectory(directories, extensions, options = {}) {
                     model.metadata = await fetchModelMetadataByHash(model.hash, civitaiKey)
                     if (model.metadata) {
                       console.log(`✓ Found: ${model.metadata.modelName || 'Unknown'}`)
+
+                      // Use LoRA Manager trigger words if CivitAI didn't provide any
+                      if (loraManagerTriggerWords && (!model.metadata.trainedWords || model.metadata.trainedWords.length === 0)) {
+                        model.metadata.trainedWords = loraManagerTriggerWords
+                        console.log(`🎯 Using trigger words from LoRA Manager metadata`)
+                      }
 
                       // Download and cache thumbnail
                       try {
@@ -438,6 +490,12 @@ async function scanModelDirectory(directories, extensions, options = {}) {
                     console.warn(`⚠️  Failed to fetch metadata for ${file.name}:`, error.message)
                     model.metadata = null
                   }
+                } else if (loraManagerTriggerWords) {
+                  // No hash or not fetching from CivitAI, but we have LoRA Manager trigger words
+                  model.metadata = {
+                    trainedWords: loraManagerTriggerWords
+                  }
+                  console.log(`🎯 Using trigger words from LoRA Manager metadata (no CivitAI data)`)
                 }
               }
 

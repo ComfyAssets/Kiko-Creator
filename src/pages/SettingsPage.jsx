@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '../stores/settingsStore'
 import EditableSettingRow from '../components/settings/EditableSettingRow'
+import RescanModal from '../components/modals/RescanModal'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -15,11 +16,16 @@ export default function SettingsPage() {
     defaults,
     setComfyUIConnection,
     setCivitAI,
-    setDefaults
+    setDefaults,
+    setModels
   } = useSettingsStore()
 
   const [dbStats, setDbStats] = useState(null)
   const [maintenanceStatus, setMaintenanceStatus] = useState({})
+  const [showRescanModal, setShowRescanModal] = useState(false)
+  const [rescanModalStatus, setRescanModalStatus] = useState('loading')
+  const [rescanResults, setRescanResults] = useState(null)
+  const [rescanError, setRescanError] = useState(null)
 
   // Fetch database stats on mount
   useEffect(() => {
@@ -65,6 +71,74 @@ export default function SettingsPage() {
       width: defaults.height,
       height: defaults.width
     })
+  }
+
+  const reloadModels = async () => {
+    try {
+      const modelsResponse = await fetch(`${API_URL}/api/models/grouped`)
+      if (modelsResponse.ok) {
+        const { models } = await modelsResponse.json()
+
+        // Transform trained_words to triggerWords for frontend compatibility
+        const transformedModels = {
+          checkpoints: models.checkpoints,
+          loras: models.loras.map(lora => ({
+            ...lora,
+            triggerWords: lora.trained_words || []
+          })),
+          embeddings: models.embeddings
+        }
+
+        setModels(transformedModels)
+        console.log('📦 Models reloaded after rescan:', {
+          checkpoints: transformedModels.checkpoints.length,
+          loras: transformedModels.loras.length,
+          embeddings: transformedModels.embeddings.length
+        })
+      }
+    } catch (error) {
+      console.error('Failed to reload models:', error)
+    }
+  }
+
+  const handleRescanModels = async () => {
+    // Open modal in loading state
+    setShowRescanModal(true)
+    setRescanModalStatus('loading')
+    setRescanResults(null)
+    setRescanError(null)
+
+    try {
+      const response = await fetch(`${API_URL}/api/setup/rescan`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+
+      if (response.ok) {
+        setRescanModalStatus('success')
+        setRescanResults(data.stats)
+        await fetchDatabaseStats()
+        // Reload models to get updated trigger words
+        await reloadModels()
+      } else {
+        setRescanModalStatus('error')
+        setRescanError(data.error || 'Unknown error occurred')
+      }
+    } catch (error) {
+      setRescanModalStatus('error')
+      setRescanError(error.message)
+      console.error('Failed to re-scan models:', error)
+    }
+  }
+
+  const handleCloseRescanModal = () => {
+    setShowRescanModal(false)
+    // Reset state after animation completes
+    setTimeout(() => {
+      setRescanModalStatus('loading')
+      setRescanResults(null)
+      setRescanError(null)
+    }, 300)
   }
 
   const handleRerunSetup = async () => {
@@ -368,6 +442,25 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Model Management */}
+        <div className="bg-bg-secondary rounded-lg border border-border-primary p-4 md:p-6">
+          <h2 className="text-lg md:text-xl font-semibold text-text-primary mb-3 md:mb-4 flex items-center gap-2">
+            <span>📦</span>
+            Model Management
+          </h2>
+          <p className="text-text-secondary text-sm mb-4">
+            Re-scan model directories to discover new models and update metadata (including LoRA trigger words)
+          </p>
+          <motion.button
+            onClick={handleRescanModels}
+            className="px-4 py-3 md:py-2 bg-bg-hover text-text-primary rounded-lg border border-border-primary active:border-accent-primary transition-all duration-200 touch-manipulation w-full md:w-auto"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Re-scan Models
+          </motion.button>
+        </div>
+
         {/* Setup Wizard */}
         <div className="bg-bg-secondary rounded-lg border border-border-primary p-4 md:p-6">
           <h2 className="text-lg md:text-xl font-semibold text-text-primary mb-3 md:mb-4 flex items-center gap-2">
@@ -387,6 +480,14 @@ export default function SettingsPage() {
           </motion.button>
         </div>
       </div>
+
+      <RescanModal
+        isOpen={showRescanModal}
+        onClose={handleCloseRescanModal}
+        status={rescanModalStatus}
+        results={rescanResults}
+        error={rescanError}
+      />
     </motion.div>
   )
 }

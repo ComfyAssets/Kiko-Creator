@@ -32,11 +32,22 @@ function App() {
               const modelsResponse = await fetch(`${API_URL}/api/models/grouped`)
               if (modelsResponse.ok) {
                 const { models } = await modelsResponse.json()
-                useSettingsStore.getState().setModels(models)
+                
+                // Transform trained_words to triggerWords for frontend compatibility
+                const transformedModels = {
+                  checkpoints: models.checkpoints,
+                  loras: models.loras.map(lora => ({
+                    ...lora,
+                    triggerWords: lora.trained_words || []
+                  })),
+                  embeddings: models.embeddings
+                }
+                
+                useSettingsStore.getState().setModels(transformedModels)
                 console.log('📦 Models loaded from server:', {
-                  checkpoints: models.checkpoints.length,
-                  loras: models.loras.length,
-                  embeddings: models.embeddings.length
+                  checkpoints: transformedModels.checkpoints.length,
+                  loras: transformedModels.loras.length,
+                  embeddings: transformedModels.embeddings.length
                 })
               } else {
                 console.warn('Failed to fetch models from server')

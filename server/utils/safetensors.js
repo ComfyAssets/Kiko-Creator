@@ -230,7 +230,7 @@ export function readSafetensorsMetadataSync(filePath) {
  * @param {string} safetensorsPath - Path to safetensors file
  * @returns {object|null} Metadata object or null
  */
-function readLoraManagerMetadata(safetensorsPath) {
+export function readLoraManagerMetadata(safetensorsPath) {
   try {
     // LoRA Manager stores metadata in .metadata.json files alongside the safetensors
     const metadataPath = safetensorsPath.replace(/\.safetensors$/, '.metadata.json')
