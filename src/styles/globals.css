@@ -42,12 +42,20 @@
   }
 
   /* Glow effect on hover */
-  .glow-hover-purple {
+  .glow-hover-ocean {
     @apply transition-all duration-300 ease-in-out;
   }
 
-  .glow-hover-purple:hover {
-    @apply shadow-glow-purple;
+  .glow-hover-ocean:hover {
+    @apply shadow-glow-ocean;
+  }
+
+  .glow-hover-aqua {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .glow-hover-aqua:hover {
+    @apply shadow-glow-aqua;
   }
 
   .glow-hover-cyan {
