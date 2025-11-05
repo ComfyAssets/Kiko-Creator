@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com",
           `connect-src 'self' ${apiOrigin} ${wsUrl} ${localhostWs} ${comfyUrl} ${comfyWsUrl} http://127.0.0.1:8188 ws://127.0.0.1:8188`,
-          `img-src 'self' data: ${apiOrigin} ${comfyUrl} http://127.0.0.1:8188`
+          `img-src 'self' data: ${apiOrigin} ${comfyUrl} http://127.0.0.1:8188 https://image.civitai.com`
         ].join('; ')
 
         return html.replace(
