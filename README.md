@@ -178,7 +178,7 @@ For enhanced CivitAI integration with 🌐 globe links to model pages:
 
    ```bash
    cd ComfyUI/custom_nodes
-   git clone https://github.com/civitai/comfyui-lora-manager.git
+   git clone https://github.com/willmiao/ComfyUI-Lora-Manager.git
    ```
 
 2. **How it works**:
@@ -539,7 +539,7 @@ This reference application provided invaluable patterns and concepts:
 
 ### CivitAI Integration
 
-**[ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager)** by CivitAI
+**[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager)** by willmiao
 
 Kiko Creator reads CivitAI metadata from LoRA Manager's `.metadata.json` files to provide:
 
@@ -707,7 +707,7 @@ _Inspired by and grateful to the [Character Select Stand Alone App](https://gith
 
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) - Main SD backend
 - [ComfyUI_Mira](https://github.com/mirabarukaso/ComfyUI_Mira) - Required extension
-- [ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager) - CivitAI metadata provider
+- [ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) - LoRA metadata provider by willmiao
 - [Character Select App](https://github.com/mirabarukaso/character_select_stand_alone_app) - Reference implementation
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
 - [React](https://react.dev) - UI library
