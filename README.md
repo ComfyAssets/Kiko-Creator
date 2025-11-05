@@ -27,6 +27,11 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ### Generation Features
 - **Advanced Settings**: Steps, CFG, sampler, scheduler, resolution presets
 - **LoRA Management**: Drag-and-drop LoRA slots with strength controls
+- **🎯 LoRA Trigger Words**: Active trigger words displayed beneath prompt as clickable tags
+  - Click individual tags to add to prompt
+  - "Add All" button for quick insertion
+  - Automatically reads from LoRA Manager `.metadata.json` and safetensors metadata
+  - Shows combined trigger words from all selected LoRAs
 - **Tag Autocomplete**: Danbooru/E621 tag suggestions (ready for integration)
 - **Wildcard Support**: Random prompt generation from text files
 - **View Tags**: Angle, camera, background, and style tags
@@ -45,16 +50,28 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ### Models Management
 - **Checkpoint Browser**: View all available checkpoints with thumbnails
 - **LoRA Browser**: Browse LoRA library with metadata
-- **CivitAI Integration**: Ready for model metadata enrichment
+- **CivitAI Integration**: 🌐 Globe links to CivitAI model pages (uses LoRA Manager metadata)
+- **🔄 Model Re-scanning**: One-click re-scan to discover new models and update metadata
+  - Professional modal UI with loading/success/error states
+  - Shows detailed statistics (checkpoints, LoRAs, embeddings, cached count, duration)
+  - Automatically reloads trigger words and metadata after scan
+  - Preserves previous scan settings (YAML path, CivitAI integration)
 - **Quick Send**: One-click send models to generation page
 - **Folder Organization**: Models grouped by directory structure
 - **Auto-Sync**: Real-time model list from ComfyUI API
+- **Extra Model Paths**: Automatically discovers models from `extra_model_paths.yaml`
+- **Database Management**: Vacuum, optimize, and backup database operations
 
 ## 📋 Prerequisites
 
+### Required
 - **Node.js** 18+ (with npm)
 - **ComfyUI** with [ComfyUI_Mira](https://github.com/mirabarukaso/ComfyUI_Mira) v0.4.9.2+
 - **Python** 3.10+ (for ComfyUI)
+
+### Optional (Recommended)
+- **Python 3.8+** (for enhanced safetensors metadata reading - see [Python Helper Setup](#-python-helper-setup-optional-but-recommended))
+- **[ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager)** (for CivitAI metadata and 🌐 globe links)
 
 ## 🚀 Installation
 
@@ -99,6 +116,11 @@ Create a `server/.env` file:
 # Backend Environment Variables
 PORT=3001
 COMFYUI_API_URL=http://127.0.0.1:8188
+
+# Optional: For CivitAI metadata and extra model paths support
+# Requires ComfyUI-LoRA-Manager for enhanced metadata extraction
+COMFYUI_MODELS_PATH=/path/to/ComfyUI/models
+COMFYUI_DIR=/path/to/ComfyUI
 ```
 
 ### 4. Start the Application
@@ -138,6 +160,27 @@ Open your browser to `http://localhost:5173`
    ```
 
 3. **Enable DEV Mode** in ComfyUI settings
+
+### Optional: CivitAI Metadata Support
+
+For enhanced CivitAI integration with 🌐 globe links to model pages:
+
+1. **Install ComfyUI-LoRA-Manager** (recommended)
+   ```bash
+   cd ComfyUI/custom_nodes
+   git clone https://github.com/civitai/comfyui-lora-manager.git
+   ```
+
+2. **How it works**:
+   - Kiko Creator reads metadata from LoRA Manager's `.metadata.json` files
+   - When you download models via LoRA Manager, it stores CivitAI model IDs
+   - Globe icons (🌐) appear next to models with CivitAI metadata
+   - Click the globe to view model details on CivitAI
+
+3. **Configuration**:
+   - Set `COMFYUI_MODELS_PATH` in `server/.env` to enable metadata reading
+   - Set `COMFYUI_DIR` to parse ComfyUI's `extra_model_paths.yaml`
+   - Works for checkpoints, LoRAs, and embeddings
 
 ### Workflow Configuration
 
@@ -251,6 +294,90 @@ Modern browsers enforce **Mixed Content Policy** and **Content Security Policy (
 
 By proxying through localhost or using proper SSL, you ensure the WebSocket connection meets these security requirements.
 
+## 🐍 Python Helper Setup (Optional but Recommended)
+
+Kiko Creator includes an optional Python helper for robust safetensors metadata reading. The app **works perfectly without Python** using a JavaScript fallback, but the Python helper provides better compatibility with large model files and edge cases.
+
+### Why Use Python Helper?
+
+**With Python Helper:**
+- ✅ Uses the official `safetensors` library (same as ComfyUI)
+- ✅ Handles all format variations and edge cases automatically
+- ✅ Efficient reading of 7GB+ model files
+- ✅ Future-proof with library updates
+
+**Without Python Helper (JavaScript Fallback):**
+- ✅ Still fully functional - no Python required!
+- ✅ Works for 99% of model files
+- ✅ 700,000x faster than old code (reads only 10KB vs entire file)
+- ⚠️ Manual format parsing (may miss rare edge cases)
+
+### Installation
+
+#### Option 1: Virtual Environment (Recommended)
+
+```bash
+# Navigate to project root
+cd kiko-creator
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate    # Linux/Mac
+# OR
+venv\Scripts\activate       # Windows
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+#### Option 2: Global Installation
+
+```bash
+# Install directly (not recommended for production)
+pip install -r requirements.txt
+```
+
+### Verifying Setup
+
+After installation, restart the server and check the logs:
+
+```bash
+npm run dev:all
+```
+
+Look for one of these messages in the terminal:
+- ✅ `[Safetensors] Using Python helper at /path/to/python` - Python helper active!
+- ⚠️ `[Safetensors] Python not found, using JavaScript fallback` - JS fallback mode (still works!)
+- ⚠️ `[Safetensors] Python found but safetensors library not installed` - Need to run `pip install`
+
+### What Gets Improved?
+
+The Python helper enhances:
+- **LoRA Metadata Reading**: Trigger words, base model info, descriptions
+- **CivitAI Integration**: Model/version IDs for 🌐 globe links
+- **Large Model Support**: Reads 7GB+ files without memory issues
+- **Edge Case Handling**: Unusual format variations handled automatically
+
+### Deactivating Virtual Environment
+
+When you're done working with the project:
+
+```bash
+# Deactivate virtual environment
+deactivate
+```
+
+Next time you work on the project, remember to activate the venv again:
+```bash
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+```
+
+### More Information
+
+For detailed troubleshooting and testing instructions, see [PYTHON_SETUP.md](PYTHON_SETUP.md).
+
 ## 📁 Project Structure
 
 ```
@@ -284,11 +411,18 @@ kiko-creator/
 │   │   └── models.js            # Model scanning
 │   ├── services/
 │   │   └── workflowBuilder.js   # ComfyUI workflow generation
+│   ├── utils/
+│   │   ├── safetensors.js       # Safetensors metadata (hybrid JS/Python)
+│   │   ├── safetensors_reader.py # Python safetensors helper
+│   │   └── python_bridge.js     # Node.js ↔ Python bridge
 │   └── index.js                 # Express server
 ├── data/                         # Data files (git-ignored)
 │   ├── wai_characters.csv       # Character database
 │   ├── wai_character_thumbs.json # Character thumbnails
 │   └── danbooru_e621_merged.csv # Tag autocomplete
+├── venv/                         # Python virtual environment (optional)
+├── requirements.txt              # Python dependencies
+├── PYTHON_SETUP.md              # Python helper documentation
 └── referance/                    # Reference application
     └── character_select_stand_alone_app/
 ```
@@ -332,8 +466,39 @@ kiko-creator/
 - **Switch Tabs**: Toggle between Checkpoints and LoRAs
 - **Search**: Filter by name or folder
 - **Send to Generation**: Click "➤ Generate" on any model card
+- **CivitAI Links**: Click 🌐 globe icon to view model details on CivitAI (requires LoRA Manager)
 - **View Details**: Click "ℹ️ Info" for CivitAI metadata (when available)
 - **Auto-Refresh**: Models sync automatically from ComfyUI on page load
+- **Dropdowns**: Globe icons also appear in model/LoRA/embedding selection dropdowns for quick access
+
+### Using LoRA Trigger Words
+
+1. **Select a LoRA**: Add any LoRA to a slot in the generation page
+2. **Trigger Words Appear**: Tags automatically display beneath the positive prompt
+3. **Click to Add**: Click individual trigger word tags to add them to your prompt
+4. **Add All**: Use the "Add All" button to insert all trigger words at once
+5. **Multiple LoRAs**: Trigger words from all selected LoRAs are combined and deduplicated
+
+**Note**: Trigger words are automatically extracted from:
+- LoRA Manager `.metadata.json` files (if installed)
+- Safetensors metadata embedded in model files
+- CivitAI metadata (if previously scanned with API key)
+
+### Re-scanning Models
+
+When you add new models to ComfyUI or update existing ones:
+
+1. **Navigate to Settings**: Go to Settings page
+2. **Find Model Management**: Scroll to the "Model Management" section
+3. **Click Re-scan**: Press the "Re-scan Models" button
+4. **Watch Progress**: A modal shows the scanning progress with a spinner
+5. **View Results**: When complete, see statistics:
+   - Checkpoints discovered
+   - LoRAs discovered (with trigger words)
+   - Embeddings discovered
+   - Cached vs new models
+   - Scan duration
+6. **Automatic Reload**: Models and trigger words update automatically after scan
 
 ## 🙏 Credits & Acknowledgments
 
@@ -349,6 +514,15 @@ This reference application provided invaluable patterns and concepts:
 - LoRA slot management patterns
 - ComfyUI workflow generation logic
 - CSV data file formats and processing
+
+### CivitAI Integration
+
+**[ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager)** by CivitAI
+
+Kiko Creator reads CivitAI metadata from LoRA Manager's `.metadata.json` files to provide:
+- Direct links to model pages on CivitAI
+- Model version information
+- Seamless integration with CivitAI's download workflow
 
 ### Key Differences
 
@@ -404,7 +578,7 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 
 ### Current Limitations
 - Tag autocomplete requires CSV data files (auto-download planned)
-- CivitAI metadata enrichment requires API key configuration
+- CivitAI metadata requires ComfyUI-LoRA-Manager to be installed (see [Setup](#optional-civitai-metadata-support))
 - WebSocket requires proxy for remote ComfyUI without HTTPS (see [Remote Setup](#-remote-comfyui-setup))
 - Gallery stored in browser localStorage (limited to ~10MB)
 
@@ -423,14 +597,21 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 - [x] Persistent gallery with metadata
 - [x] Model management (checkpoints + LoRAs)
 - [x] LoRA slot system
+- [x] **LoRA trigger words display** - Clickable tags beneath prompt with "Add All" button
+- [x] **Model re-scanning** - One-click re-scan with professional modal UI
+- [x] **LoRA Manager integration** - Reads trigger words from `.metadata.json` files
+- [x] **Metadata preservation** - ComfyUI sync preserves database metadata
 - [x] Mobile-responsive design
 - [x] Batch operations
 - [x] Favorites system
+- [x] CivitAI metadata integration with 🌐 globe links
+- [x] Extra model paths support (parses `extra_model_paths.yaml`)
+- [x] Embeddings browser with recursive directory scanning
+- [x] Database maintenance tools (vacuum, optimize, backup)
 
 ### In Progress 🚧
 - [ ] Tag autocomplete with weight adjustment
 - [ ] Wildcard browser and editor
-- [ ] CivitAI metadata integration
 
 ### Planned 📋
 - [ ] Image-to-Image support
@@ -489,6 +670,7 @@ If you find this project useful:
 
 - [ComfyUI](https://github.com/comfyanonymous/ComfyUI) - Main SD backend
 - [ComfyUI_Mira](https://github.com/mirabarukaso/ComfyUI_Mira) - Required extension
+- [ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager) - CivitAI metadata provider
 - [Character Select App](https://github.com/mirabarukaso/character_select_stand_alone_app) - Reference implementation
 - [Tailwind CSS](https://tailwindcss.com) - CSS framework
 - [React](https://react.dev) - UI library

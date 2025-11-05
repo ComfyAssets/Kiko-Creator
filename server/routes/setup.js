@@ -1,6 +1,7 @@
 import express from 'express'
 import { testConnection, discoverModels, parseYAMLFile, saveSettingsToFile } from '../services/setup.js'
-import { getAppMetadata, updateAppMetadata } from '../db/index.js'
+import { getAppMetadata, updateAppMetadata, getDatabase } from '../db/index.js'
+import config from '../config.js'
 
 const router = express.Router()
 
@@ -100,6 +101,53 @@ router.post('/save-settings', async (req, res) => {
 
     res.json(result)
   } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Re-scan models using last scan settings
+router.post('/rescan', async (req, res) => {
+  try {
+    // Get database connection (properly initialized with migrations)
+    const db = getDatabase()
+
+    // Get last scan settings from scan_history
+    const lastScan = db.prepare('SELECT yaml_path, civitai_enabled FROM scan_history ORDER BY id DESC LIMIT 1').get()
+
+    if (!lastScan) {
+      return res.status(400).json({ error: 'No previous scan found. Please run initial setup first.' })
+    }
+
+    // Get CivitAI key from app_metadata if civitai was enabled
+    let civitaiKey = null
+    if (lastScan.civitai_enabled === 1) {
+      const civitaiKeyRow = db.prepare('SELECT value FROM app_metadata WHERE key = ?').get('civitai_api_key')
+      civitaiKey = civitaiKeyRow?.value || null
+    }
+
+    console.log('🔄 Starting model re-scan...')
+    console.log(`   YAML Path: ${lastScan.yaml_path}`)
+    console.log(`   CivitAI: ${lastScan.civitai_enabled ? 'enabled' : 'disabled'}`)
+
+    // Use ComfyUI API URL from config
+    const apiUrl = config.comfyuiApiUrl
+
+    const options = {
+      civitaiKey: civitaiKey,
+      calculateHashes: true,
+      fetchMetadata: lastScan.civitai_enabled === 1
+    }
+
+    // Run model discovery
+    const models = await discoverModels(apiUrl, lastScan.yaml_path, options)
+
+    res.json({
+      success: true,
+      message: 'Model re-scan completed successfully',
+      stats: models.stats
+    })
+  } catch (error) {
+    console.error('Re-scan error:', error)
     res.status(500).json({ error: error.message })
   }
 })

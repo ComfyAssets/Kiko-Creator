@@ -1,55 +1,53 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { NavLink, Outlet } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 export default function MainLayout() {
-  const { comfyui } = useSettingsStore()
+  const { comfyui } = useSettingsStore();
 
   const navItems = [
     {
-      path: '/characters',
-      label: 'Characters',
-      icon: '👤',
-      description: 'Browse and select characters'
+      path: "/characters",
+      label: "Characters",
+      icon: "👤",
+      description: "Browse and select characters",
     },
     {
-      path: '/generate',
-      label: 'Generate',
-      icon: '✨',
-      description: 'Create AI images'
+      path: "/generate",
+      label: "Generate",
+      icon: "✨",
+      description: "Create AI images",
     },
     {
-      path: '/gallery',
-      label: 'Gallery',
-      icon: '🖼️',
-      description: 'View generated images'
+      path: "/gallery",
+      label: "Gallery",
+      icon: "🖼️",
+      description: "View generated images",
     },
     {
-      path: '/models',
-      label: 'Models',
-      icon: '🎨',
-      description: 'Manage checkpoints & LoRAs'
+      path: "/models",
+      label: "Models",
+      icon: "🎨",
+      description: "Manage checkpoints & LoRAs",
     },
     {
-      path: '/settings',
-      label: 'Settings',
-      icon: '⚙️',
-      description: 'Configure application'
-    }
-  ]
+      path: "/settings",
+      label: "Settings",
+      icon: "⚙️",
+      description: "Configure application",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col md:flex-row">
       {/* Desktop Sidebar - hidden on mobile */}
-      <aside className="hidden md:flex w-64 bg-bg-secondary border-r border-border-primary flex-col">
+      <aside className="hidden md:flex w-64 bg-bg-secondary border-r border-border-primary flex-col md:sticky md:top-0 md:h-screen">
         {/* Logo/Header */}
         <div className="p-6 border-b border-border-primary">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-accent-primary to-accent-secondary bg-clip-text text-transparent">
             Kiko Creator
           </h1>
-          <p className="text-sm text-text-tertiary mt-1">
-            AI Image Generation
-          </p>
+          <p className="text-sm text-text-tertiary mt-1">AI Image Generation</p>
         </div>
 
         {/* Navigation */}
@@ -63,8 +61,8 @@ export default function MainLayout() {
                 transition-all duration-200
                 ${
                   isActive
-                    ? 'bg-accent-primary text-white shadow-glow-purple'
-                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+                    ? "bg-accent-primary text-white shadow-glow-purple"
+                    : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 }
               `}
             >
@@ -94,11 +92,13 @@ export default function MainLayout() {
           <div className="flex items-center gap-2 text-xs">
             <span
               className={`w-2 h-2 rounded-full ${
-                comfyui.connected ? 'bg-accent-success animate-pulse' : 'bg-text-tertiary'
+                comfyui.connected
+                  ? "bg-accent-success animate-pulse"
+                  : "bg-text-tertiary"
               }`}
             />
             <span className="text-text-secondary">
-              {comfyui.connected ? 'ComfyUI Connected' : 'Not Connected'}
+              {comfyui.connected ? "ComfyUI Connected" : "Not Connected"}
             </span>
           </div>
         </div>
@@ -113,7 +113,9 @@ export default function MainLayout() {
         <div className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full ${
-              comfyui.connected ? 'bg-accent-success animate-pulse' : 'bg-text-tertiary'
+              comfyui.connected
+                ? "bg-accent-success animate-pulse"
+                : "bg-text-tertiary"
             }`}
           />
         </div>
@@ -136,17 +138,19 @@ export default function MainLayout() {
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-all duration-200 min-h-[60px] ${
                   isActive
-                    ? 'bg-accent-primary text-white'
-                    : 'text-text-secondary active:bg-bg-hover'
+                    ? "bg-accent-primary text-white"
+                    : "text-text-secondary active:bg-bg-hover"
                 }`
               }
             >
               <span className="text-2xl mb-1">{item.icon}</span>
-              <span className="text-[10px] font-medium truncate w-full text-center leading-tight">{item.label}</span>
+              <span className="text-[10px] font-medium truncate w-full text-center leading-tight">
+                {item.label}
+              </span>
             </NavLink>
           ))}
         </div>
       </nav>
     </div>
-  )
+  );
 }

@@ -1,0 +1,7 @@
+# Python dependencies for Kiko Creator
+# Install with: pip install -r requirements.txt
+# Or create venv: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# No dependencies required!
+# The safetensors_reader.py uses only Python standard library (json, struct)
+# for fast, lightweight metadata reading without external dependencies.

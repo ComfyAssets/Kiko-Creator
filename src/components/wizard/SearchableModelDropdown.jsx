@@ -249,7 +249,27 @@ export default function SearchableModelDropdown({
                               )}
                             </div>
 
-                            {/* CivitAI Indicator */}
+                            {/* CivitAI Globe Icon */}
+                            {model.civitai?.modelId && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const modelId = model.civitai.modelId
+                                  const versionId = model.civitai.id
+                                  let url = `https://civitai.com/models/${modelId}`
+                                  if (versionId) {
+                                    url += `?modelVersionId=${versionId}`
+                                  }
+                                  window.open(url, '_blank', 'noopener,noreferrer')
+                                }}
+                                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-bg-tertiary transition-colors text-text-secondary hover:text-accent-primary"
+                                title="View on CivitAI"
+                              >
+                                🌐
+                              </button>
+                            )}
+
+                            {/* Thumbnail Indicator */}
                             {model.metadata?.thumbnailPath && (
                               <div className="flex-shrink-0">
                                 <div className="w-6 h-6 rounded bg-accent-secondary/20 flex items-center justify-center">

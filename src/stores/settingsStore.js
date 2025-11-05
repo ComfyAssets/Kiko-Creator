@@ -12,7 +12,9 @@ export const useSettingsStore = create(
         apiUrl: 'http://127.0.0.1:8188',
         connected: false,
         version: null,
-        hasMira: false
+        hasMira: false,
+        modelsPath: '',      // Path to ComfyUI/models directory
+        comfyuiDir: ''       // Path to ComfyUI installation root
       },
 
       // CivitAI settings
@@ -32,8 +34,9 @@ export const useSettingsStore = create(
       // Discovered models
       models: {
         checkpoints: [],
-        loras: [],
-        embeddings: []
+        loras: [], // Now includes { name, path, triggerWords: [], description, baseModel }
+        embeddings: [], // { name, fileName, description }
+        upscalers: []
       },
 
       // User preferences
@@ -50,6 +53,9 @@ export const useSettingsStore = create(
 
       // Favorite checkpoints (by model name/path)
       favoriteCheckpoints: [],
+
+      // Favorite embeddings (by name)
+      favoriteEmbeddings: [],
 
       // Actions
       setComfyUIConnection: (connectionData) =>
@@ -115,7 +121,24 @@ export const useSettingsStore = create(
 
       // Check if a checkpoint is favorited
       isFavoriteCheckpoint: (checkpointName) =>
-        (get) => get().favoriteCheckpoints.includes(checkpointName)
+        (get) => get().favoriteCheckpoints.includes(checkpointName),
+
+      // Toggle favorite embedding
+      toggleFavoriteEmbedding: (embeddingName) =>
+        set((state) => {
+          const favorites = state.favoriteEmbeddings
+          const isFavorite = favorites.includes(embeddingName)
+
+          return {
+            favoriteEmbeddings: isFavorite
+              ? favorites.filter(name => name !== embeddingName)
+              : [...favorites, embeddingName]
+          }
+        }),
+
+      // Check if an embedding is favorited
+      isFavoriteEmbedding: (embeddingName) =>
+        (get) => get().favoriteEmbeddings.includes(embeddingName)
     }),
     {
       name: 'kiko-creator-settings',

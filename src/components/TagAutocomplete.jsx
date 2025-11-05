@@ -100,8 +100,72 @@ export default function TagAutocomplete({ value, onChange, placeholder, classNam
     }, 0)
   }
 
-  // Handle keyboard navigation
+  // Adjust prompt weight for selected text
+  const adjustPromptWeight = (increment) => {
+    if (!textareaRef.current) return
+
+    const start = textareaRef.current.selectionStart
+    const end = textareaRef.current.selectionEnd
+    const text = value || ''
+
+    // If no selection, do nothing
+    if (start === end) return
+
+    const selectedText = text.substring(start, end).trim()
+    if (!selectedText) return
+
+    // Check if already wrapped with weight syntax: (text:1.0)
+    const weightRegex = /^\((.+?):([\d.]+)\)$/
+    const match = selectedText.match(weightRegex)
+
+    let newText
+    let newCursorEnd
+
+    if (match) {
+      // Already has weight syntax, adjust the weight
+      const innerText = match[1]
+      const currentWeight = parseFloat(match[2])
+      const newWeight = Math.max(0.1, Math.min(2.0, currentWeight + increment)).toFixed(1)
+      newText = `(${innerText}:${newWeight})`
+      newCursorEnd = start + newText.length
+    } else {
+      // No weight syntax, wrap with default weight
+      const initialWeight = increment > 0 ? 1.1 : 0.9
+      newText = `(${selectedText}:${initialWeight.toFixed(1)})`
+      newCursorEnd = start + newText.length
+    }
+
+    // Replace the selected text
+    const before = text.substring(0, start)
+    const after = text.substring(end)
+    const updatedValue = before + newText + after
+
+    onChange(updatedValue)
+
+    // Restore selection after update
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(start, newCursorEnd)
+      }
+    }, 0)
+  }
+
+  // Handle keyboard navigation and weight adjustment
   const handleKeyDown = (e) => {
+    // Handle Cmd/Ctrl + Plus/Minus for weight adjustment
+    if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+      e.preventDefault()
+      adjustPromptWeight(0.1)
+      return
+    }
+
+    if ((e.metaKey || e.ctrlKey) && (e.key === '-' || e.key === '_')) {
+      e.preventDefault()
+      adjustPromptWeight(-0.1)
+      return
+    }
+
     if (!showSuggestions || suggestions.length === 0) {
       return
     }
@@ -211,7 +275,7 @@ export default function TagAutocomplete({ value, onChange, placeholder, classNam
 
             {/* Help text */}
             <div className="px-4 py-2 border-t border-border-primary bg-bg-tertiary text-xs text-text-tertiary">
-              <span className="font-mono">↑↓</span> navigate • <span className="font-mono">Enter</span> select • <span className="font-mono">Esc</span> close
+              <span className="font-mono">↑↓</span> navigate • <span className="font-mono">Enter</span> select • <span className="font-mono">Esc</span> close • <span className="font-mono">Cmd±</span> weight
             </div>
           </motion.div>
         )}

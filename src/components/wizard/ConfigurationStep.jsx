@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { saveSettings } from '../../services/api'
 import SearchableModelDropdown from './SearchableModelDropdown'
+import { RESOLUTION_PRESETS, RESOLUTIONS_BY_CATEGORY } from '../../constants/resolutions'
 
 export default function ConfigurationStep({ onBack }) {
   const navigate = useNavigate()
@@ -17,8 +18,8 @@ export default function ConfigurationStep({ onBack }) {
     cfg: 7,
     sampler: 'euler_ancestral',
     scheduler: 'normal',
-    width: 512,
-    height: 512
+    width: 1024,  // SDXL default
+    height: 1024   // SDXL default
   })
 
   const handleComplete = async () => {
@@ -58,13 +59,8 @@ export default function ConfigurationStep({ onBack }) {
 
   const schedulers = ['normal', 'karras', 'exponential', 'simple']
 
-  const resolutions = [
-    { label: '512x512', width: 512, height: 512 },
-    { label: '768x768', width: 768, height: 768 },
-    { label: '1024x1024', width: 1024, height: 1024 },
-    { label: '512x768 (Portrait)', width: 512, height: 768 },
-    { label: '768x512 (Landscape)', width: 768, height: 512 }
-  ]
+  // Use shared resolution presets
+  const categories = Object.keys(RESOLUTIONS_BY_CATEGORY)
 
   return (
     <div className="space-y-6">
@@ -218,27 +214,36 @@ export default function ConfigurationStep({ onBack }) {
           >
             Resolution
           </label>
-          <div className="grid grid-cols-5 gap-2">
-            {resolutions.map((res) => (
-              <motion.button
-                key={res.label}
-                onClick={() =>
-                  setConfig({ ...config, width: res.width, height: res.height })
-                }
-                className={`
-                  px-3 py-2 rounded-lg text-sm font-medium
-                  transition-all duration-200
-                  ${
-                    config.width === res.width && config.height === res.height
-                      ? 'bg-accent-primary text-white shadow-glow-purple'
-                      : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
-                  }
-                `}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {res.label}
-              </motion.button>
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+            {categories.map((category) => (
+              <div key={category}>
+                <div className="text-xs font-medium text-text-tertiary mb-1">
+                  {category}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {RESOLUTIONS_BY_CATEGORY[category].map((res) => (
+                    <motion.button
+                      key={res.label}
+                      onClick={() =>
+                        setConfig({ ...config, width: res.width, height: res.height })
+                      }
+                      className={`
+                        px-2 py-1.5 rounded text-xs font-medium
+                        transition-all duration-200
+                        ${
+                          config.width === res.width && config.height === res.height
+                            ? 'bg-accent-primary text-white shadow-glow-purple'
+                            : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
+                        }
+                      `}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      {res.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>

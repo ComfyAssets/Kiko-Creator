@@ -4,6 +4,17 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
+# Python virtual environment
+venv/
+.venv/
+env/
+ENV/
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
 # Production build
 dist/
 build/

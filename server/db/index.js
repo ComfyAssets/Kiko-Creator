@@ -64,6 +64,34 @@ function runMigrations(db) {
       }
     }
   }
+
+  // Migration 2 → 3: Create scan_history table if missing
+  if (currentVersion < 3) {
+    console.log('📦 Running migration: Create scan_history table')
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS scan_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          started_at TEXT NOT NULL,
+          completed_at TEXT,
+          yaml_path TEXT NOT NULL,
+          checkpoints_found INTEGER DEFAULT 0,
+          loras_found INTEGER DEFAULT 0,
+          embeddings_found INTEGER DEFAULT 0,
+          errors TEXT,
+          civitai_enabled INTEGER DEFAULT 0,
+          duration_seconds INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scan_history_started_at ON scan_history(started_at DESC);
+      `)
+      db.prepare('UPDATE app_metadata SET value = ?, updated_at = datetime(\'now\') WHERE key = ?')
+        .run('3', 'schema_version')
+      console.log('✅ Migration completed: scan_history table created')
+    } catch (error) {
+      console.warn('⚠️  Migration warning:', error.message)
+    }
+  }
 }
 
 // Model CRUD operations
