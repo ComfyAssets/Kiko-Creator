@@ -61,7 +61,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/kiko-creator.git
+git clone git clone https://github.com/yourusername/kiko-creator.git
 cd kiko-creator
 ```
 
