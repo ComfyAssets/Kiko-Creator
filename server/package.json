@@ -1,0 +1,25 @@
+{
+  "name": "kiko-creator-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend API server for Kiko Creator",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.1",
+    "cors": "^2.8.5",
+    "axios": "^1.7.0",
+    "ws": "^8.18.0",
+    "yaml": "^2.6.1",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.7",
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}

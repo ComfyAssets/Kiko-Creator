@@ -1,0 +1,92 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Production build
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.local
+
+# Data files (large, user-specific)
+data/
+!data/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+kiko-creator.log
+
+# Process management
+.kiko-creator.pid
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Settings
+settings.json
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Testing
+.vitest/
+
+# Data files
+data/danbooru_e621_merged.csv
+data/wai_*.csv
+data/wai_*.json
+
+# Reference application (not included in repo)
+referance/
+
+# Claude Code files
+.claude/
+CLAUDE.md
+
+# Database files
+*.db
+kiko.db
+
+# Backup files
+*.backup
+
+# Screenshots
+ss.png
+
+# Development/planning docs
+docs/LIVE_PROGRESS.md
+docs/NETWORK_ACCESS.md
+docs/PHASE1_SPECIFICATION.md

@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border-primary;
+  }
+
+  body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full w-full;
+  }
+}
+
+@layer components {
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-secondary;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-secondary rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-text-tertiary;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    @apply backdrop-blur-xl bg-bg-secondary bg-opacity-80 border border-border-primary;
+  }
+
+  /* Glow effect on hover */
+  .glow-hover-purple {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .glow-hover-purple:hover {
+    @apply shadow-glow-purple;
+  }
+
+  .glow-hover-cyan {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .glow-hover-cyan:hover {
+    @apply shadow-glow-cyan;
+  }
+
+  /* Smooth transitions */
+  .smooth-transition {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  /* Loading shimmer effect */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(26, 26, 26, 0) 0%,
+      rgba(38, 38, 38, 0.5) 50%,
+      rgba(26, 26, 26, 0) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+}
