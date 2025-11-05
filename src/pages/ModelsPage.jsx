@@ -24,15 +24,19 @@ export default function ModelsPage() {
         if (checkpointsRes.ok) {
           const { checkpoints } = await checkpointsRes.json()
           if (checkpoints && checkpoints.length > 0) {
-            const checkpointModels = checkpoints.map(ckptPath => {
-              const parts = ckptPath.split('/')
+            const checkpointModels = checkpoints.map(ckpt => {
+              // ckpt is now an object with { name, path, description, baseModel, civitai }
+              const parts = (ckpt.path || ckpt.name).split('/')
               const name = parts[parts.length - 1]
               const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
               return {
                 type: 'checkpoint',
-                name: ckptPath,
+                name: ckpt.name || ckpt.path,
                 folder: folder,
-                path: ckptPath,
+                path: ckpt.path || ckpt.name,
+                description: ckpt.description,
+                baseModel: ckpt.baseModel,
+                civitai: ckpt.civitai || {},
                 metadata: null
               }
             })
@@ -46,15 +50,20 @@ export default function ModelsPage() {
         if (lorasRes.ok) {
           const { loras } = await lorasRes.json()
           if (loras && loras.length > 0) {
-            const loraModels = loras.map(loraPath => {
-              const parts = loraPath.split('/')
+            const loraModels = loras.map(lora => {
+              // lora is now an object with { name, path, triggerWords, description, baseModel, civitai }
+              const parts = (lora.path || lora.name).split('/')
               const name = parts[parts.length - 1]
               const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
               return {
                 type: 'lora',
-                name: loraPath,
+                name: lora.name || lora.path,
                 folder: folder,
-                path: loraPath,
+                path: lora.path || lora.name,
+                triggerWords: lora.triggerWords || [],
+                description: lora.description,
+                baseModel: lora.baseModel,
+                civitai: lora.civitai || {},
                 metadata: null
               }
             })
@@ -230,10 +239,11 @@ function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, meta
 
   // Get thumbnail URL
   const getThumbnailUrl = () => {
-    if (model.metadata?.thumbnailPath && !imageError) {
-      const filename = model.metadata.thumbnailPath.split('/').pop()
-      return `${API_URL}/api/thumbnails/${filename}`
+    // First, try to get preview image from CivitAI metadata
+    if (model.civitai?.previewImage && !imageError) {
+      return model.civitai.previewImage
     }
+    // Fallback to metadata API call (for future use)
     if (metadata?.images?.[0]?.url && !imageError) {
       return metadata.images[0].url
     }
@@ -288,6 +298,26 @@ function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, meta
           >
             ℹ️ Info
           </motion.button>
+          {model.civitai?.modelId && (
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation()
+                const modelId = model.civitai.modelId
+                const versionId = model.civitai.id
+                let url = `https://civitai.com/models/${modelId}`
+                if (versionId) {
+                  url += `?modelVersionId=${versionId}`
+                }
+                window.open(url, '_blank', 'noopener,noreferrer')
+              }}
+              className="px-3 py-2 bg-bg-secondary text-text-primary rounded-lg text-sm font-medium hover:bg-bg-hover"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="View on CivitAI"
+            >
+              🌐 CivitAI
+            </motion.button>
+          )}
         </div>
       </div>
 
@@ -297,9 +327,15 @@ function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, meta
           {model.name.split('/').pop().replace(/\.(safetensors|ckpt|pt)$/, '')}
         </h4>
 
-        {model.metadata?.baseModel && (
+        {model.baseModel && (
           <p className="text-xs text-text-tertiary mb-2">
-            {model.metadata.baseModel}
+            {model.baseModel}
+          </p>
+        )}
+
+        {model.description && (
+          <p className="text-xs text-text-secondary line-clamp-2 mb-2">
+            {model.description}
           </p>
         )}
 
