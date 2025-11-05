@@ -9,6 +9,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ## 🌟 Features
 
 ### Core Functionality
+
 - **🎨 Real-Time Generation**: WebSocket-based progress tracking with live step updates
 - **👤 Character Selection**: Browse and search 5328+ anime characters with thumbnails
 - **🎯 Smart Model Management**: Auto-sync checkpoints and LoRAs from ComfyUI
@@ -17,6 +18,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 - **🌙 Dark Mode**: Beautiful dark theme optimized for extended use
 
 ### Character System
+
 - **5328+ Characters**: Pre-loaded character database from WAI dataset
 - **Custom Characters**: Create and manage your own custom characters with images
 - **Smart Search**: Real-time search with fuzzy matching
@@ -25,6 +27,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 - **Right-Click Menu**: Quick actions (send to prompt, delete, edit)
 
 ### Generation Features
+
 - **Advanced Settings**: Steps, CFG, sampler, scheduler, resolution presets
 - **LoRA Management**: Drag-and-drop LoRA slots with strength controls
 - **🎯 LoRA Trigger Words**: Active trigger words displayed beneath prompt as clickable tags
@@ -40,6 +43,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 - **Real-Time Progress**: WebSocket connection shows actual step progress
 
 ### Gallery & Organization
+
 - **Persistent Storage**: Images saved with full metadata in localStorage
 - **Grid View**: Adjustable 2-6 column layouts
 - **Lightbox**: Fullscreen viewer with keyboard navigation (ESC, arrows)
@@ -48,6 +52,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 - **Metadata Display**: View all generation parameters
 
 ### Models Management
+
 - **Checkpoint Browser**: View all available checkpoints with thumbnails
 - **LoRA Browser**: Browse LoRA library with metadata
 - **CivitAI Integration**: 🌐 Globe links to CivitAI model pages (uses LoRA Manager metadata)
@@ -65,11 +70,13 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ## 📋 Prerequisites
 
 ### Required
+
 - **Node.js** 18+ (with npm)
 - **ComfyUI** with [ComfyUI_Mira](https://github.com/mirabarukaso/ComfyUI_Mira) v0.4.9.2+
 - **Python** 3.10+ (for ComfyUI)
 
 ### Optional (Recommended)
+
 - **Python 3.8+** (for enhanced safetensors metadata reading - see [Python Helper Setup](#-python-helper-setup-optional-but-recommended))
 - **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager)** by willmiao (for CivitAI metadata and 🌐 globe links)
 
@@ -148,12 +155,14 @@ Open your browser to `http://localhost:5173`
 ### Required Custom Nodes
 
 1. **ComfyUI_Mira** (v0.4.9.2 or higher)
+
    ```bash
    cd ComfyUI/custom_nodes
    git clone https://github.com/mirabarukaso/ComfyUI_Mira.git
    ```
 
 2. **Install Dependencies**
+
    ```bash
    cd ComfyUI_Mira
    pip install -r requirements.txt
@@ -166,6 +175,7 @@ Open your browser to `http://localhost:5173`
 For enhanced CivitAI integration with 🌐 globe links to model pages:
 
 1. **Install ComfyUI-LoRA-Manager** (recommended)
+
    ```bash
    cd ComfyUI/custom_nodes
    git clone https://github.com/civitai/comfyui-lora-manager.git
@@ -197,6 +207,7 @@ The workflow is built in `server/services/workflowBuilder.js` and follows ComfyU
 ### Example Workflow Nodes
 
 The generated workflow includes these key nodes:
+
 - `KikoPromptNode`: Prompt processing with character injection
 - `CheckpointLoaderSimple`: Model loading
 - `LoraLoader`: LoRA application (multiple chained)
@@ -229,6 +240,7 @@ socat TCP-LISTEN:8188,bind=127.0.0.1,fork TCP:comfy.yourdomain.com:443
 This creates a local proxy at `127.0.0.1:8188` that forwards all traffic to your remote ComfyUI server.
 
 Then configure your `.env`:
+
 ```env
 VITE_COMFYUI_URL=http://127.0.0.1:8188
 ```
@@ -243,6 +255,7 @@ ssh -L 8188:localhost:8188 user@remote-comfyui-server
 ```
 
 Then configure your `.env`:
+
 ```env
 VITE_COMFYUI_URL=http://127.0.0.1:8188
 ```
@@ -281,6 +294,7 @@ server {
 ```
 
 Then configure your `.env`:
+
 ```env
 VITE_COMFYUI_URL=https://comfy.yourdomain.com
 ```
@@ -288,6 +302,7 @@ VITE_COMFYUI_URL=https://comfy.yourdomain.com
 ### Why is this needed?
 
 Modern browsers enforce **Mixed Content Policy** and **Content Security Policy (CSP)**:
+
 - If your app is served over `http://`, WebSocket connections must use `ws://`
 - If your app is served over `https://`, WebSocket connections must use `wss://`
 - The WebSocket connection must be to an allowed origin in the CSP
@@ -301,12 +316,14 @@ Kiko Creator includes an optional Python helper for robust safetensors metadata 
 ### Why Use Python Helper?
 
 **With Python Helper:**
+
 - ✅ Uses the official `safetensors` library (same as ComfyUI)
 - ✅ Handles all format variations and edge cases automatically
 - ✅ Efficient reading of 7GB+ model files
 - ✅ Future-proof with library updates
 
 **Without Python Helper (JavaScript Fallback):**
+
 - ✅ Still fully functional - no Python required!
 - ✅ Works for 99% of model files
 - ✅ 700,000x faster than old code (reads only 10KB vs entire file)
@@ -348,6 +365,7 @@ npm run dev:all
 ```
 
 Look for one of these messages in the terminal:
+
 - ✅ `[Safetensors] Using Python helper at /path/to/python` - Python helper active!
 - ⚠️ `[Safetensors] Python not found, using JavaScript fallback` - JS fallback mode (still works!)
 - ⚠️ `[Safetensors] Python found but safetensors library not installed` - Need to run `pip install`
@@ -355,6 +373,7 @@ Look for one of these messages in the terminal:
 ### What Gets Improved?
 
 The Python helper enhances:
+
 - **LoRA Metadata Reading**: Trigger words, base model info, descriptions
 - **CivitAI Integration**: Model/version IDs for 🌐 globe links
 - **Large Model Support**: Reads 7GB+ files without memory issues
@@ -370,6 +389,7 @@ deactivate
 ```
 
 Next time you work on the project, remember to activate the venv again:
+
 ```bash
 source venv/bin/activate  # or venv\Scripts\activate on Windows
 ```
@@ -480,6 +500,7 @@ kiko-creator/
 5. **Multiple LoRAs**: Trigger words from all selected LoRAs are combined and deduplicated
 
 **Note**: Trigger words are automatically extracted from:
+
 - LoRA Manager `.metadata.json` files (if installed)
 - Safetensors metadata embedded in model files
 - CivitAI metadata (if previously scanned with API key)
@@ -509,6 +530,7 @@ Kiko Creator is inspired by and builds upon concepts from:
 **[Character Select Stand Alone App](https://github.com/mirabarukaso/character_select_stand_alone_app)** by [@mirabarukaso](https://github.com/mirabarukaso)
 
 This reference application provided invaluable patterns and concepts:
+
 - Character database structure and selection system
 - Tag autocomplete mechanism from Danbooru/E621
 - LoRA slot management patterns
@@ -520,6 +542,7 @@ This reference application provided invaluable patterns and concepts:
 **[ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager)** by CivitAI
 
 Kiko Creator reads CivitAI metadata from LoRA Manager's `.metadata.json` files to provide:
+
 - Direct links to model pages on CivitAI
 - Model version information
 - Seamless integration with CivitAI's download workflow
@@ -529,11 +552,13 @@ Kiko Creator reads CivitAI metadata from LoRA Manager's `.metadata.json` files t
 While inspired by the reference app, Kiko Creator is a complete reimplementation with significant architectural changes:
 
 #### Architecture
+
 - **Web-First**: React SPA instead of Electron desktop app
 - **Modern Stack**: React + Express instead of vanilla JS + Electron IPC
 - **No Bundling**: Vite HMR instead of Electron build process
 
 #### Features
+
 - **Real-Time Updates**: WebSocket progress instead of HTTP polling
 - **Persistent Gallery**: localStorage with full metadata instead of temp preview
 - **Responsive Design**: Mobile-optimized UI with touch support
@@ -542,6 +567,7 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 - **Auto-Sync**: Models sync from ComfyUI API vs manual file scanning
 
 #### Technical Implementation
+
 - **State Management**: Zustand with persist vs vanilla state
 - **API Layer**: REST + WebSocket vs Electron IPC
 - **Component System**: React hooks vs vanilla DOM manipulation
@@ -556,6 +582,7 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 ### Technologies
 
 #### Frontend
+
 - **React** 18.3 - UI framework with hooks
 - **Vite** 5.x - Build tool and dev server
 - **Tailwind CSS** 3.x - Utility-first CSS
@@ -564,12 +591,14 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 - **React Router** 6.x - Client-side routing
 
 #### Backend
+
 - **Node.js** 18+ - JavaScript runtime
 - **Express** 4.x - Web server framework
 - **Axios** - HTTP client for ComfyUI API
 - **YAML** - Configuration file parsing
 
 #### Integration
+
 - **ComfyUI** - Stable Diffusion backend
 - **ComfyUI_Mira** - Essential extension for workflow support
 - **WebSocket** - Real-time progress tracking
@@ -577,12 +606,14 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 ## 🐛 Known Issues & Limitations
 
 ### Current Limitations
+
 - Tag autocomplete requires CSV data files (auto-download planned)
 - CivitAI metadata requires ComfyUI-LoRA-Manager to be installed (see [Setup](#optional-civitai-metadata-support))
 - WebSocket requires proxy for remote ComfyUI without HTTPS (see [Remote Setup](#-remote-comfyui-setup))
 - Gallery stored in browser localStorage (limited to ~10MB)
 
 ### Workarounds
+
 - **Remote WebSocket**: Use socat or SSH tunnel (documented above)
 - **Storage Limits**: Clear old images when approaching browser limits
 - **Model Sync**: Refresh Models page if new models don't appear
@@ -590,6 +621,7 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 ## 🚧 Roadmap
 
 ### Completed ✅
+
 - [x] Setup wizard with ComfyUI validation
 - [x] Character selection with 5328+ characters
 - [x] Custom character creation
@@ -610,10 +642,12 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 - [x] Database maintenance tools (vacuum, optimize, backup)
 
 ### In Progress 🚧
+
 - [ ] Tag autocomplete with weight adjustment
 - [ ] Wildcard browser and editor
 
 ### Planned 📋
+
 - [ ] Image-to-Image support
 - [ ] ControlNet integration
 - [ ] Prompt templates and presets
@@ -634,6 +668,7 @@ Contributions are welcome! Please:
 5. Open a Pull Request
 
 ### Development Guidelines
+
 - Follow existing code style
 - Add comments for complex logic
 - Test on both desktop and mobile
@@ -642,6 +677,7 @@ Contributions are welcome! Please:
 ## 📧 Support
 
 For issues and questions:
+
 - **GitHub Issues**: [Report a bug or request a feature](https://github.com/yourusername/kiko-creator/issues)
 - **Documentation**: Check this README and inline code comments
 - **Reference App**: Check the [Character Select Stand Alone App](https://github.com/mirabarukaso/character_select_stand_alone_app) for original patterns
@@ -653,6 +689,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 ## 🌟 Show Your Support
 
 If you find this project useful:
+
 - ⭐ Star the repository
 - 🐛 Report bugs and suggest features
 - 📢 Share with the ComfyUI community
@@ -662,7 +699,7 @@ If you find this project useful:
 
 **Made with ❤️ for the ComfyUI community**
 
-*Inspired by and grateful to the [Character Select Stand Alone App](https://github.com/mirabarukaso/character_select_stand_alone_app) team for their excellent reference implementation.*
+_Inspired by and grateful to the [Character Select Stand Alone App](https://github.com/mirabarukaso/character_select_stand_alone_app) team for their excellent reference implementation._
 
 ---
 
