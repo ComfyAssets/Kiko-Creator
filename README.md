@@ -71,7 +71,7 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 
 ### Optional (Recommended)
 - **Python 3.8+** (for enhanced safetensors metadata reading - see [Python Helper Setup](#-python-helper-setup-optional-but-recommended))
-- **[ComfyUI-LoRA-Manager](https://github.com/civitai/comfyui-lora-manager)** (for CivitAI metadata and 🌐 globe links)
+- **[ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager)** by willmiao (for CivitAI metadata and 🌐 globe links)
 
 ## 🚀 Installation
 
