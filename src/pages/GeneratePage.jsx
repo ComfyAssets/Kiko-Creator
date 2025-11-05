@@ -89,6 +89,8 @@ export default function GeneratePage() {
     max: 0,
   }); // Current step / Max steps
   const wsRef = useRef(null); // WebSocket reference
+  const resultsRef = useRef(null); // Results section reference for auto-scroll
+  const processedPromptIds = useRef(new Set()); // Track processed prompt IDs to prevent duplicates
 
   const samplers = [
     "euler",
@@ -524,8 +526,12 @@ export default function GeneratePage() {
           if (message.type === "status") {
             const execInfo = message.data?.status?.exec_info;
             if (execInfo?.queue_remaining === 0 && currentPromptId) {
-              console.log("🎉 Queue empty, fetching images...");
-              await fetchGeneratedImages(currentPromptId);
+              // Check if we've already processed this prompt ID
+              if (!processedPromptIds.current.has(currentPromptId)) {
+                console.log("🎉 Queue empty, fetching images...");
+                processedPromptIds.current.add(currentPromptId);
+                await fetchGeneratedImages(currentPromptId);
+              }
             }
           }
 
@@ -534,7 +540,9 @@ export default function GeneratePage() {
             const msgPromptId = message.data?.prompt_id;
             console.log(`⚡ Execution cached - promptId: ${msgPromptId}`);
 
-            if (msgPromptId) {
+            // Check if we've already processed this prompt ID
+            if (msgPromptId && !processedPromptIds.current.has(msgPromptId)) {
+              processedPromptIds.current.add(msgPromptId);
               await fetchGeneratedImages(msgPromptId);
             }
           }
@@ -678,6 +686,9 @@ export default function GeneratePage() {
     setGenerationProgress(0);
     setGenerationError(null);
     setGeneratedImages([]);
+
+    // Clear processed prompt IDs for this new generation
+    processedPromptIds.current.clear();
 
     // Generate client_id ONCE for both backend submission and WebSocket
     const clientId = `kiko-creator-${Date.now()}`;
@@ -828,11 +839,41 @@ export default function GeneratePage() {
           whileHover={{ scale: 1.01 }}
           className="bg-gradient-to-br from-bg-secondary/80 to-bg-tertiary/80 backdrop-blur-xl rounded-2xl border border-ocean-400/20 shadow-2xl shadow-ocean-400/10 p-6 md:p-8 relative z-30"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-ocean-400 to-ocean-500 flex items-center justify-center">
-              <span className="text-xl">📝</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-ocean-400 to-ocean-500 flex items-center justify-center">
+                <span className="text-xl">📝</span>
+              </div>
+              <h2 className="text-2xl font-bold text-text-primary">Creative Prompt</h2>
             </div>
-            <h2 className="text-2xl font-bold text-text-primary">Creative Prompt</h2>
+            <motion.button
+              onClick={() => {
+                handleGenerate();
+                // Scroll to results section after generation starts and WebSocket connects
+                setTimeout(() => {
+                  resultsRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                  });
+                }, 1000);
+              }}
+              disabled={isGenerating}
+              className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg shadow-lg shadow-green-500/30 transition-all duration-200 flex items-center gap-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {isGenerating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <span>⚡</span>
+                  <span>Generate</span>
+                </>
+              )}
+            </motion.button>
           </div>
 
           {/* Quality Tags */}
@@ -1663,6 +1704,7 @@ export default function GeneratePage() {
         {/* Right Panel - Preview Section */}
         <div className="lg:col-span-1 space-y-4">
           <motion.div
+            ref={resultsRef}
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.15, duration: 0.5 }}
