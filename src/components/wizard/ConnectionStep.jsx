@@ -188,7 +188,7 @@ export default function ConnectionStep({ onNext }) {
           whileHover={{ scale: success ? 1.05 : 1 }}
           whileTap={{ scale: success ? 0.95 : 1 }}
         >
-          Continue to Model Discovery →
+          Continue to Model Paths →
         </motion.button>
       </div>
     </div>

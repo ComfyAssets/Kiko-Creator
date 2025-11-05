@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ConnectionStep from './ConnectionStep'
+import ModelPathsStep from './ModelPathsStep'
 import CivitAIStep from './CivitAIStep'
 import ModelDiscoveryStep from './ModelDiscoveryStep'
 import ConfigurationStep from './ConfigurationStep'
 
 const steps = [
   { id: 1, name: 'Connection', description: 'Connect to ComfyUI API' },
-  { id: 2, name: 'CivitAI', description: 'Configure CivitAI API' },
-  { id: 3, name: 'Discovery', description: 'Discover models and LoRAs' },
-  { id: 4, name: 'Configuration', description: 'Configure defaults' }
+  { id: 2, name: 'Model Paths', description: 'Configure model directories' },
+  { id: 3, name: 'API Keys', description: 'Configure API keys' },
+  { id: 4, name: 'Discovery', description: 'Discover models and LoRAs' },
+  { id: 5, name: 'Configuration', description: 'Configure defaults' }
 ]
 
 export default function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(1)
 
   const nextStep = () => {
-    if (currentStep < 4) setCurrentStep(currentStep + 1)
+    if (currentStep < 5) setCurrentStep(currentStep + 1)
   }
 
   const prevStep = () => {
@@ -53,13 +55,13 @@ export default function SetupWizard() {
               <motion.div
                 className="h-full bg-accent-primary"
                 initial={{ width: '0%' }}
-                animate={{ width: `${((currentStep - 1) / 3) * 100}%` }}
+                animate={{ width: `${((currentStep - 1) / 4) * 100}%` }}
                 transition={{ duration: 0.5, ease: 'easeInOut' }}
               />
             </div>
 
             {steps.map((step) => (
-              <div key={step.id} className="flex flex-col items-center w-1/4">
+              <div key={step.id} className="flex flex-col items-center w-1/5">
                 <motion.div
                   className={`
                     w-10 h-10 rounded-full flex items-center justify-center font-bold mb-2
@@ -104,11 +106,12 @@ export default function SetupWizard() {
             className="glass rounded-2xl p-8 shadow-2xl min-h-[400px]"
           >
             {currentStep === 1 && <ConnectionStep onNext={nextStep} />}
-            {currentStep === 2 && <CivitAIStep onNext={nextStep} onBack={prevStep} />}
-            {currentStep === 3 && (
+            {currentStep === 2 && <ModelPathsStep onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 3 && <CivitAIStep onNext={nextStep} onBack={prevStep} />}
+            {currentStep === 4 && (
               <ModelDiscoveryStep onNext={nextStep} onBack={prevStep} />
             )}
-            {currentStep === 4 && <ConfigurationStep onBack={prevStep} />}
+            {currentStep === 5 && <ConfigurationStep onBack={prevStep} />}
           </motion.div>
         </AnimatePresence>
       </div>

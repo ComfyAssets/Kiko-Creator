@@ -216,7 +216,7 @@ export default function CivitAIStep({ onNext, onBack }) {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Continue to Model Discovery →
+          Continue to Discovery →
         </motion.button>
       </div>
     </div>
