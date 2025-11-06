@@ -29,6 +29,16 @@ A modern, web-based AI image generation interface for ComfyUI with character sel
 ### Generation Features
 
 - **Advanced Settings**: Steps, CFG, sampler, scheduler, resolution presets
+- **💾 Preset System**: Save and load complete generation settings
+  - **Save Presets**: Capture all settings (checkpoint, prompts, LoRAs, steps, CFG, resolution, CLIP skip, hires fix, refiner)
+  - **Searchable Dropdown**: Quick access with search and favorites (⭐)
+  - **One-Click Apply**: Instantly restore your favorite configurations
+  - **Persistent Storage**: Presets saved locally and sync across sessions
+- **🎨 CLIP Skip**: Control text encoder layer selection
+  - Range from -1 (last layer) to -12 (12th layer from end)
+  - Default -2 (SDXL standard) for optimal quality
+  - Fine-tune how the AI interprets your prompts
+  - Saved with presets for consistent results
 - **LoRA Management**: Drag-and-drop LoRA slots with strength controls
 - **🎯 LoRA Trigger Words**: Active trigger words displayed beneath prompt as clickable tags
   - Click individual tags to add to prompt
@@ -463,11 +473,32 @@ kiko-creator/
    - Adjust steps, CFG, sampler
    - Select resolution preset
    - Add LoRAs if desired
+   - Adjust CLIP Skip (-2 is SDXL default, -1 for last layer, up to -12 for early layers)
 3. **Enter Prompts**: Common prompt + character-specific prompt
 4. **Generate**: Click generate and watch **real-time progress**
    - Progress bar shows actual steps (e.g., "15/20 - 75%")
    - WebSocket provides instant updates
 5. **View Results**: Images appear in preview and are saved to gallery
+
+### Using Presets
+
+**Save a Preset:**
+1. Configure your desired settings (checkpoint, prompts, LoRAs, steps, CFG, resolution, CLIP skip, hires fix, refiner)
+2. Click the **⚙️ Presets** button in the top right
+3. Enter a preset name and click **Save**
+4. Your preset is now saved locally
+
+**Load a Preset:**
+1. Click the **dropdown** next to the Presets button
+2. Search for your preset by name
+3. Click on a preset to instantly apply all saved settings
+4. Star (⭐) your favorite presets for quick access
+
+**Preset Features:**
+- **Complete Settings**: Saves everything - checkpoint, prompts, LoRAs with strengths, generation parameters, CLIP skip, hires fix, and refiner settings
+- **Search & Filter**: Type to find presets quickly, filter by favorites
+- **Persistent**: Presets sync across browser sessions
+- **Import/Export**: Share presets with others (coming soon)
 
 ### Managing Gallery
 
@@ -633,6 +664,8 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 - [x] **Model re-scanning** - One-click re-scan with professional modal UI
 - [x] **LoRA Manager integration** - Reads trigger words from `.metadata.json` files
 - [x] **Metadata preservation** - ComfyUI sync preserves database metadata
+- [x] **Preset system** - Save/load complete generation settings with searchable dropdown and favorites
+- [x] **CLIP Skip control** - Fine-tune text encoder layer selection (CLIPSetLastLayer node)
 - [x] Mobile-responsive design
 - [x] Batch operations
 - [x] Favorites system
@@ -650,9 +683,8 @@ While inspired by the reference app, Kiko Creator is a complete reimplementation
 
 - [ ] Image-to-Image support
 - [ ] ControlNet integration
-- [ ] Prompt templates and presets
 - [ ] Batch character generation
-- [ ] Export/import settings
+- [ ] Preset import/export functionality
 - [ ] Generation history timeline
 - [ ] Image comparison tools
 - [ ] Multi-language support
