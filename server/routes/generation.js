@@ -1,5 +1,5 @@
 import express from 'express'
-import { buildTextToImageWorkflow, validateSettings } from '../services/workflowBuilder.js'
+import { buildTextToImageWorkflow, validateSettings, getWorkflowNodeNames } from '../services/workflowBuilder.js'
 
 // Note: fetch is built-in to Node.js 18+
 
@@ -75,6 +75,9 @@ router.post('/generate', async (req, res) => {
     const result = await response.json()
     console.log('✅ Generation submitted:', result)
 
+    // Get node names for progress tracking
+    const nodeNames = getWorkflowNodeNames(settings)
+
     // Store generation info for progress tracking
     if (result.prompt_id) {
       activeGenerations.set(result.prompt_id, {
@@ -82,14 +85,16 @@ router.post('/generate', async (req, res) => {
         loraSlots,
         status: 'queued',
         startTime: Date.now(),
-        progress: 0
+        progress: 0,
+        nodeNames
       })
     }
 
     res.json({
       success: true,
       promptId: result.prompt_id,
-      message: 'Generation started'
+      message: 'Generation started',
+      nodeNames // Include node names for frontend WebSocket parsing
     })
   } catch (error) {
     console.error('❌ Generation error:', error)
