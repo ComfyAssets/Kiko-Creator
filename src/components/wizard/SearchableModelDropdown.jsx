@@ -153,7 +153,7 @@ export default function SearchableModelDropdown({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
             className="
-              absolute z-50 w-full mt-2
+              absolute z-[999] w-full mt-2
               bg-bg-secondary border border-border-primary
               rounded-lg shadow-xl
               max-h-96 overflow-hidden
