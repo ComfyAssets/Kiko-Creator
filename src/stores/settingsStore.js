@@ -60,6 +60,9 @@ export const useSettingsStore = create(
       // Favorite embeddings (by name)
       favoriteEmbeddings: [],
 
+      // Hidden models (by model path)
+      hiddenModels: [],
+
       // Actions
       setComfyUIConnection: (connectionData) =>
         set((state) => ({
@@ -122,10 +125,6 @@ export const useSettingsStore = create(
           }
         }),
 
-      // Check if a checkpoint is favorited
-      isFavoriteCheckpoint: (checkpointName) =>
-        (get) => get().favoriteCheckpoints.includes(checkpointName),
-
       // Toggle favorite upscaler
       toggleFavoriteUpscaler: (upscalerName) =>
         set((state) => {
@@ -138,10 +137,6 @@ export const useSettingsStore = create(
               : [...favorites, upscalerName]
           }
         }),
-
-      // Check if an upscaler is favorited
-      isFavoriteUpscaler: (upscalerName) =>
-        (get) => get().favoriteUpscalers.includes(upscalerName),
 
       // Toggle favorite embedding
       toggleFavoriteEmbedding: (embeddingName) =>
@@ -156,9 +151,18 @@ export const useSettingsStore = create(
           }
         }),
 
-      // Check if an embedding is favorited
-      isFavoriteEmbedding: (embeddingName) =>
-        (get) => get().favoriteEmbeddings.includes(embeddingName)
+      // Toggle hidden model
+      toggleHiddenModel: (modelPath) =>
+        set((state) => {
+          const hidden = state.hiddenModels
+          const isHidden = hidden.includes(modelPath)
+
+          return {
+            hiddenModels: isHidden
+              ? hidden.filter(path => path !== modelPath)
+              : [...hidden, modelPath]
+          }
+        })
     }),
     {
       name: 'kiko-creator-settings',
