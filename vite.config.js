@@ -14,9 +14,10 @@ export default defineConfig(({ mode }) => {
         const url = new URL(apiUrl)
         const apiOrigin = url.origin
 
-        // Parse host and port for websocket URLs
-        const wsUrl = `ws://${url.hostname}:5173`
-        const localhostWs = 'ws://localhost:5173'
+        // WebSocket URLs for HMR (dev mode only, but included in CSP for safety)
+        // In production build, these won't be used but CSP needs to allow them
+        const wsUrl = `ws://${url.hostname}:*`
+        const localhostWs = 'ws://localhost:*'
 
         // ComfyUI URL - support both env variable and default
         const comfyUrl = env.VITE_COMFYUI_URL || 'http://127.0.0.1:8188'
@@ -54,6 +55,17 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), cspPlugin()],
     server: {
       port: 5173,
+      host: true, // Listen on all network interfaces (0.0.0.0)
+      proxy: {
+        '/api': {
+          target: env.VITE_API_URL || 'http://localhost:3001',
+          changeOrigin: true,
+          secure: false
+        }
+      }
+    },
+    preview: {
+      port: 5173, // Use same port as dev to preserve localStorage (presets, etc.)
       host: true, // Listen on all network interfaces (0.0.0.0)
       proxy: {
         '/api': {
