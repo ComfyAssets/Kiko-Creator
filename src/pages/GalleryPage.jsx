@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useGalleryStore } from "../stores/galleryStore";
+import { useGenerationStore } from "../stores/generationStore";
 import ImageLightbox from "../components/ImageLightbox";
 
 export default function GalleryPage() {
   const { images, removeImage, removeImages, toggleFavorite, isFavorite } =
     useGalleryStore();
+  const { setPendingImageMetadata } = useGenerationStore();
+  const navigate = useNavigate();
 
   const [gridColumns, setGridColumns] = useState(3);
   const [selectedImages, setSelectedImages] = useState([]);
@@ -204,6 +208,12 @@ export default function GalleryPage() {
                   a.download = image.filename;
                   a.click();
                 }}
+                onGenerate={() => {
+                  if (image.metadata) {
+                    setPendingImageMetadata(image.metadata);
+                    navigate("/generate");
+                  }
+                }}
               />
             ))}
           </div>
@@ -279,6 +289,7 @@ function GalleryImage({
   onToggleFavorite,
   onDelete,
   onDownload,
+  onGenerate,
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -344,6 +355,18 @@ function GalleryImage({
       {!selectionMode && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <div className="flex items-center justify-center gap-2">
+            {image.metadata && onGenerate && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerate();
+                }}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs backdrop-blur-sm"
+                title="Generate Again"
+              >
+                ✨
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
