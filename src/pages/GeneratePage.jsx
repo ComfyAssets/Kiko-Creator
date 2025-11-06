@@ -3,10 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useGenerationStore } from '../stores/generationStore'
 import { useGalleryStore } from '../stores/galleryStore'
+import { usePresetStore } from '../stores/presetStore'
 import SearchableModelDropdown from '../components/wizard/SearchableModelDropdown'
 import TagAutocomplete from '../components/TagAutocomplete'
 import WildcardMenu from '../components/WildcardMenu'
 import EmbeddingsMenu from '../components/EmbeddingsMenu'
+import SearchablePresetDropdown from '../components/presets/SearchablePresetDropdown'
+import PresetManagementModal from '../components/presets/PresetManagementModal'
+import { useToast } from '../hooks/useToast'
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -18,10 +22,17 @@ export default function GeneratePage() {
     setCheckpoints,
     favoriteCheckpoints,
     toggleFavoriteCheckpoint,
+    favoriteUpscalers,
+    toggleFavoriteUpscaler,
   } = useSettingsStore();
   const { prompt, negativePrompt, setPrompt, setNegativePrompt } =
     useGenerationStore();
   const { addImage } = useGalleryStore();
+  const { applyPreset: incrementPresetUsage } = usePresetStore();
+  const { showToast } = useToast();
+
+  // Preset modal state
+  const [showPresetModal, setShowPresetModal] = useState(false);
 
   // Quality tags state (prepended to positive prompt)
   const [qualityTags, setQualityTags] = useState(
@@ -44,6 +55,7 @@ export default function GeneratePage() {
     seed: -1,
     randomSeed: true,
     batchSize: 1,
+    clipSkip: defaults.clipSkip || -2, // -1 = last layer, -2 = second to last (SDXL default)
     // Hires Fix settings
     hiresFix: {
       enabled: false,
@@ -104,11 +116,27 @@ export default function GeneratePage() {
     "dpmpp_2s_ancestral",
     "dpmpp_sde",
     "dpmpp_2m",
+    "dpmpp_2m_sde",
+    "dpmpp_2m_sde_gpu",
+    "dpmpp_3m_sde",
+    "dpmpp_3m_sde_gpu",
     "ddim",
+    "ddpm",
     "uni_pc",
+    "lcm", // Latent Consistency Model - for fast generation (4-8 steps)
   ];
 
-  const schedulers = ["normal", "karras", "exponential", "simple"];
+  const schedulers = [
+    "normal",
+    "karras",
+    "exponential",
+    "simple",
+    "sgm_uniform",
+    "ddim_uniform",
+    "beta",
+    "linear_quadratic",
+    "kl_optimal",
+  ];
 
   // SDXL and additional resolutions from KikoTools
   const resolutions = [
@@ -629,6 +657,7 @@ export default function GeneratePage() {
             seed: settings.seed,
             steps: settings.steps,
             cfg: settings.cfg,
+            clipSkip: settings.clipSkip,
             sampler: settings.sampler,
             scheduler: settings.scheduler,
             width: settings.width,
@@ -758,6 +787,26 @@ export default function GeneratePage() {
     }
   };
 
+  // Transform upscalers into model objects for SearchableModelDropdown
+  const upscalerModels = useMemo(() => {
+    console.log('🔍 Transforming upscalers:', models?.upscalers);
+    if (!Array.isArray(models?.upscalers) || models.upscalers.length === 0) {
+      console.warn('⚠️ No upscalers found, using fallback');
+      return [
+        { name: '4x-UltraSharp', path: '4x-UltraSharp', type: 'upscaler' },
+        { name: 'R-ESRGAN 4x+', path: 'R-ESRGAN 4x+', type: 'upscaler' }
+      ];
+    }
+
+    const transformed = models.upscalers.map(upscaler => ({
+      name: upscaler,
+      path: upscaler,
+      type: 'upscaler'
+    }));
+    console.log('✅ Transformed upscalers:', transformed.length, 'models');
+    return transformed;
+  }, [models?.upscalers]);
+
   // Collect all trigger words from selected LoRAs
   const activeTriggerWords = useMemo(() => {
     const words = [];
@@ -778,6 +827,106 @@ export default function GeneratePage() {
     return words;
   }, [loraSlots, models.loras]);
 
+  // Get current settings for preset creation
+  const getCurrentSettings = () => {
+    return {
+      qualityTags,
+      checkpoint: settings.checkpoint,
+      loras: loraSlots.filter(slot => slot.lora).map(slot => ({
+        lora: slot.lora,
+        strength: slot.strength
+      })),
+      steps: settings.steps,
+      cfg: settings.cfg,
+      clipSkip: settings.clipSkip,
+      sampler: settings.sampler,
+      scheduler: settings.scheduler,
+      width: settings.width,
+      height: settings.height,
+      seed: settings.seed,
+      randomSeed: settings.randomSeed,
+      batchSize: settings.batchSize,
+      hiresFix: settings.hiresFix,
+      refiner: settings.refiner
+    };
+  };
+
+  // Apply preset to current settings
+  const handleApplyPreset = (preset) => {
+    if (!preset || !preset.settings) {
+      showToast('Invalid preset data', 'error');
+      return;
+    }
+
+    const presetSettings = preset.settings;
+    let warnings = [];
+
+    // Check if checkpoint exists
+    const checkpointExists = models.checkpoints.some(
+      m => m.name === presetSettings.checkpoint || m.path === presetSettings.checkpoint
+    );
+    if (!checkpointExists && presetSettings.checkpoint) {
+      warnings.push(`Model not found: ${presetSettings.checkpoint}`);
+    }
+
+    // Check if LoRAs exist
+    const availableLoras = [];
+    if (presetSettings.loras && Array.isArray(presetSettings.loras)) {
+      presetSettings.loras.forEach(loraSlot => {
+        const loraExists = models.loras.some(
+          l => l.name === loraSlot.lora || l.path === loraSlot.lora
+        );
+        if (loraExists) {
+          availableLoras.push(loraSlot);
+        } else {
+          warnings.push(`LoRA not found: ${loraSlot.lora}`);
+        }
+      });
+    }
+
+    // Apply quality tags
+    if (presetSettings.qualityTags !== undefined) {
+      setQualityTags(presetSettings.qualityTags);
+    }
+
+    // Apply model settings (only if checkpoint exists)
+    setSettings({
+      checkpoint: checkpointExists ? presetSettings.checkpoint : settings.checkpoint,
+      steps: presetSettings.steps || settings.steps,
+      cfg: presetSettings.cfg || settings.cfg,
+      clipSkip: presetSettings.clipSkip !== undefined ? presetSettings.clipSkip : settings.clipSkip,
+      sampler: presetSettings.sampler || settings.sampler,
+      scheduler: presetSettings.scheduler || settings.scheduler,
+      width: presetSettings.width || settings.width,
+      height: presetSettings.height || settings.height,
+      seed: presetSettings.seed !== undefined ? presetSettings.seed : settings.seed,
+      randomSeed: presetSettings.randomSeed !== undefined ? presetSettings.randomSeed : settings.randomSeed,
+      batchSize: presetSettings.batchSize || settings.batchSize,
+      hiresFix: presetSettings.hiresFix || settings.hiresFix,
+      refiner: presetSettings.refiner || settings.refiner
+    });
+
+    // Apply LoRA slots (only available ones)
+    setLoraSlots(availableLoras.map((slot, idx) => ({
+      ...slot,
+      id: Date.now() + idx
+    })));
+
+    // Increment usage count
+    incrementPresetUsage(preset.id);
+
+    // Show success message
+    if (warnings.length === 0) {
+      showToast(`Applied preset: ${preset.name}`, 'success');
+    } else {
+      showToast(`Applied preset: ${preset.name} (with warnings)`, 'warning');
+      // Show warnings after a short delay
+      setTimeout(() => {
+        warnings.forEach(warning => showToast(warning, 'warning'));
+      }, 500);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -786,16 +935,30 @@ export default function GeneratePage() {
       className="h-full w-full flex flex-col bg-gradient-to-br from-bg-primary via-bg-secondary to-bg-primary"
     >
       {/* Hero Header with Animated Gradient */}
-      <motion.div 
+      <motion.div
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative overflow-hidden bg-gradient-to-r from-ocean-500/20 via-ocean-600/20 to-ocean-700/20 backdrop-blur-xl border-b border-border-primary/50 p-6"
+        className="relative overflow-visible bg-gradient-to-r from-ocean-500/20 via-ocean-600/20 to-ocean-700/20 backdrop-blur-xl border-b border-border-primary/50 p-6 z-50"
       >
-        <div className="relative z-10">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-ocean-300 via-ocean-300 to-ocean-300 bg-clip-text text-transparent mb-2">
-            ✨ AI Image Generation
-          </h1>
+        <div className="relative z-50">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-ocean-300 via-ocean-300 to-ocean-300 bg-clip-text text-transparent">
+              ✨ AI Image Generation
+            </h1>
+            <div className="flex items-center gap-3">
+              <SearchablePresetDropdown onApply={handleApplyPreset} getCurrentSettings={getCurrentSettings} />
+              <motion.button
+                onClick={() => setShowPresetModal(true)}
+                className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-accent-secondary/20 to-accent-primary/20 hover:from-accent-secondary/30 hover:to-accent-primary/30 border border-accent-primary/30 hover:border-accent-primary/50 text-text-primary font-medium transition-all duration-200 flex items-center gap-2 shadow-lg shadow-accent-primary/10"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span>⚙️</span>
+                <span className="hidden sm:inline">Presets</span>
+              </motion.button>
+            </div>
+          </div>
           <p className="text-text-secondary text-sm md:text-base">Create stunning images with advanced diffusion models</p>
         </div>
         
@@ -1166,6 +1329,25 @@ export default function GeneratePage() {
               />
             </div>
 
+            {/* CLIP Skip */}
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                CLIP Skip: {Math.abs(settings.clipSkip)} {settings.clipSkip === -1 ? '(last layer)' : settings.clipSkip === -2 ? '(SDXL default)' : ''}
+              </label>
+              <input
+                type="range"
+                min="-12"
+                max="-1"
+                step="1"
+                value={settings.clipSkip}
+                onChange={(e) => setSettings({ ...settings, clipSkip: parseInt(e.target.value) })}
+                className="w-full"
+              />
+              <p className="text-xs text-text-secondary mt-1">
+                Controls which CLIP layer to use. Lower values (closer to -12) = earlier layers with more detail.
+              </p>
+            </div>
+
             {/* Sampler */}
             <div className="relative z-30">
               <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -1257,7 +1439,7 @@ export default function GeneratePage() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.35, duration: 0.5 }}
-          className="bg-gradient-to-br from-bg-secondary/80 to-bg-tertiary/80 backdrop-blur-xl rounded-2xl border border-ocean-600/20 p-6 relative z-10"
+          className="bg-gradient-to-br from-bg-secondary/80 to-bg-tertiary/80 backdrop-blur-xl rounded-2xl border border-ocean-600/20 p-6 relative z-[100]"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
@@ -1280,31 +1462,22 @@ export default function GeneratePage() {
           {settings.hiresFix.enabled && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Upscaler Model */}
-              <div className="col-span-2 relative z-20">
+              <div className="col-span-2 relative z-[200]">
                 <label className="block text-sm font-medium text-text-secondary mb-2">
                   Upscaler Model
                 </label>
-                <select
+                <SearchableModelDropdown
+                  models={upscalerModels}
                   value={settings.hiresFix.model}
-                  onChange={(e) => setSettings({
+                  onChange={(upscalerName) => setSettings({
                     ...settings,
-                    hiresFix: { ...settings.hiresFix, model: e.target.value }
+                    hiresFix: { ...settings.hiresFix, model: upscalerName }
                   })}
-                  className="w-full px-3 py-2 rounded-lg bg-bg-tertiary text-text-primary border border-border-primary focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 transition-all duration-200 outline-none text-sm relative z-20"
-                >
-                  {Array.isArray(models?.upscalers) && models.upscalers.length > 0 ? (
-                    models.upscalers.map((upscaler) => (
-                      <option key={upscaler} value={upscaler}>
-                        {upscaler}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="4x-UltraSharp">4x-UltraSharp</option>
-                      <option value="R-ESRGAN 4x+">R-ESRGAN 4x+</option>
-                    </>
-                  )}
-                </select>
+                  placeholder="Search upscalers..."
+                  modelType="upscaler"
+                  favoriteCheckpoints={favoriteUpscalers}
+                  onToggleFavorite={toggleFavoriteUpscaler}
+                />
               </div>
 
               <div className="col-span-2">
@@ -1841,6 +2014,14 @@ export default function GeneratePage() {
           }}
         />
       )}
+
+      {/* Preset Management Modal */}
+      <PresetManagementModal
+        isOpen={showPresetModal}
+        onClose={() => setShowPresetModal(false)}
+        onApply={handleApplyPreset}
+        getCurrentSettings={getCurrentSettings}
+      />
     </motion.div>
   );
 }
@@ -1928,6 +2109,7 @@ function PreviewLightbox({ image, images, currentIndex, onClose, onNext, onPrevi
               {image.metadata.seed !== undefined && <div><strong>Seed:</strong> {image.metadata.seed}</div>}
               {image.metadata.steps && <div><strong>Steps:</strong> {image.metadata.steps}</div>}
               {image.metadata.cfg && <div><strong>CFG:</strong> {image.metadata.cfg}</div>}
+              {image.metadata.clipSkip && <div><strong>CLIP Skip:</strong> {Math.abs(image.metadata.clipSkip)}</div>}
               {image.metadata.sampler && <div><strong>Sampler:</strong> {image.metadata.sampler}</div>}
               {image.metadata.width && image.metadata.height && (
                 <div><strong>Size:</strong> {image.metadata.width}×{image.metadata.height}</div>
