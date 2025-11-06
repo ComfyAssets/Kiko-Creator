@@ -51,15 +51,22 @@ export const usePresetStore = create(
           }
         }
 
+        // Deep clone settings if provided to avoid reference issues
+        const processedUpdates = { ...updates }
+        if (updates.settings) {
+          processedUpdates.settings = JSON.parse(JSON.stringify(updates.settings))
+        }
+
         set(state => ({
           presets: state.presets.map(p =>
             p.id === id
-              ? { ...p, ...updates, updatedAt: Date.now() }
+              ? { ...p, ...processedUpdates, updatedAt: Date.now() }
               : p
           )
         }))
 
-        return { success: true, message: 'Preset updated' }
+        const updatedName = processedUpdates.name || preset.name
+        return { success: true, message: `Updated preset: ${updatedName}` }
       },
 
       // Delete preset
