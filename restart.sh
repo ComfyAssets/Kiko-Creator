@@ -1,7 +1,17 @@
 #!/bin/bash
 
 # Kiko Creator Restart Script
-echo "🔄 Restarting Kiko Creator..."
+# Usage: ./restart.sh [dev|prod]
+
+MODE="${1:-dev}"
+
+if [ "$MODE" != "dev" ] && [ "$MODE" != "prod" ]; then
+    echo "❌ Invalid mode: $MODE"
+    echo "Usage: ./restart.sh [dev|prod]"
+    exit 1
+fi
+
+echo "🔄 Restarting Kiko Creator in $MODE mode..."
 
 # Stop if running
 if [ -f ".kiko-creator.pid" ]; then
@@ -9,5 +19,5 @@ if [ -f ".kiko-creator.pid" ]; then
     sleep 2
 fi
 
-# Start
-./start.sh
+# Start with specified mode
+./start.sh "$MODE"
