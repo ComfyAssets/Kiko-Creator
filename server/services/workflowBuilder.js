@@ -83,7 +83,9 @@ export function buildTextToImageWorkflow(settings, loraSlots = []) {
         Width: width,
         Height: height,
         Batch: batchSize,
-        Landscape: width > height,
+        // CRITICAL: ComfyUI_Mira's Landscape parameter is buggy
+        // Setting to false makes it obey width/height correctly regardless of orientation
+        Landscape: false,
         HiResMultiplier: hiresMultiplier
       },
       class_type: 'CanvasCreatorAdvanced',
@@ -520,4 +522,57 @@ export function validateSettings(settings) {
     valid: errors.length === 0,
     errors
   }
+}
+
+/**
+ * Get friendly names for workflow nodes to display execution progress
+ * @param {Object} settings - Generation settings (used to determine which nodes are active)
+ * @returns {Object} - Mapping of node IDs to friendly names
+ */
+export function getWorkflowNodeNames(settings) {
+  const { hiresFix, refiner } = settings
+
+  // Base workflow nodes (always present)
+  const nodeNames = {
+    '13': 'Configuring steps & CFG',
+    '17': 'Creating canvas',
+    '32': 'Processing positive prompt',
+    '33': 'Processing negative prompt',
+    '43': 'Loading base checkpoint',
+    '44': 'Configuring model sampling',
+    '46': 'Setting CLIP layers',
+    '39': 'Loading LoRAs',
+    '41': 'Encoding positive prompt',
+    '40': 'Encoding negative prompt',
+    '5': 'Creating latent image',
+    '36': 'Generating base image',
+    '6': 'Decoding base image'
+  }
+
+  // Upscaling nodes (always present with default multiplier 1.0)
+  nodeNames['27'] = 'Loading upscale model'
+  nodeNames['25'] = 'Upscaling image'
+
+  // Hires fix nodes (only if enabled)
+  if (hiresFix?.enabled) {
+    // Refiner nodes (only if refiner is enabled within hires fix)
+    if (refiner?.enabled && refiner?.model) {
+      nodeNames['45'] = 'Loading refiner checkpoint'
+      nodeNames['35'] = 'Configuring refiner sampling'
+      nodeNames['47'] = 'Setting refiner CLIP layers'
+      nodeNames['34'] = 'Loading refiner LoRAs'
+      nodeNames['2'] = 'Encoding refiner positive'
+      nodeNames['3'] = 'Encoding refiner negative'
+    }
+
+    nodeNames['19'] = 'Encoding for hires fix'
+    nodeNames['20'] = 'Refining image (hires fix)'
+    nodeNames['18'] = 'Decoding refined image'
+    nodeNames['28'] = 'Transferring colors'
+  }
+
+  // Final save node (always present)
+  nodeNames['29'] = 'Saving image'
+
+  return nodeNames
 }
