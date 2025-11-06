@@ -54,6 +54,9 @@ export const useSettingsStore = create(
       // Favorite checkpoints (by model name/path)
       favoriteCheckpoints: [],
 
+      // Favorite upscalers (by model name)
+      favoriteUpscalers: [],
+
       // Favorite embeddings (by name)
       favoriteEmbeddings: [],
 
@@ -122,6 +125,23 @@ export const useSettingsStore = create(
       // Check if a checkpoint is favorited
       isFavoriteCheckpoint: (checkpointName) =>
         (get) => get().favoriteCheckpoints.includes(checkpointName),
+
+      // Toggle favorite upscaler
+      toggleFavoriteUpscaler: (upscalerName) =>
+        set((state) => {
+          const favorites = state.favoriteUpscalers
+          const isFavorite = favorites.includes(upscalerName)
+
+          return {
+            favoriteUpscalers: isFavorite
+              ? favorites.filter(name => name !== upscalerName)
+              : [...favorites, upscalerName]
+          }
+        }),
+
+      // Check if an upscaler is favorited
+      isFavoriteUpscaler: (upscalerName) =>
+        (get) => get().favoriteUpscalers.includes(upscalerName),
 
       // Toggle favorite embedding
       toggleFavoriteEmbedding: (embeddingName) =>
