@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '../stores/settingsStore'
 
@@ -7,11 +7,27 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function ModelsPage() {
   const navigate = useNavigate()
-  const { models, comfyui, setCheckpoints, setLoras, setDefaults } = useSettingsStore()
-  const [activeTab, setActiveTab] = useState('checkpoints') // 'checkpoints' or 'loras'
+  const { 
+    models, 
+    comfyui, 
+    setCheckpoints, 
+    setLoras, 
+    setDefaults,
+    hiddenModels,
+    toggleHiddenModel,
+    favoriteCheckpoints,
+    toggleFavoriteCheckpoint
+  } = useSettingsStore()
+  const [activeTab, setActiveTab] = useState('checkpoints')
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
-  const [modelDetails, setModelDetails] = useState({}) // Cache for CivitAI metadata
+  const [modelDetails, setModelDetails] = useState({})
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState(null)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [selectedModelForUpload, setSelectedModelForUpload] = useState(null)
+  const contextMenuRef = useRef(null)
 
   // Sync models from ComfyUI on mount
   useEffect(() => {
@@ -79,23 +95,76 @@ export default function ModelsPage() {
     syncModels()
   }, [setCheckpoints, setLoras, comfyui.apiUrl])
 
-  // Get active model list
+  // Close context menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
+        setContextMenu(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Get active model list (filter hidden models)
   const activeModels = activeTab === 'checkpoints' ? models.checkpoints : models.loras
+  const visibleModels = activeModels.filter(model => !hiddenModels.includes(model.path))
 
   // Filter models based on search
-  const filteredModels = activeModels.filter(model => {
+  const filteredModels = visibleModels.filter(model => {
     const searchLower = searchTerm.toLowerCase()
     return model.name.toLowerCase().includes(searchLower) ||
            model.folder?.toLowerCase().includes(searchLower)
   })
 
+  // Sort models: favorites first, then alphabetically
+  const sortedModels = [...filteredModels].sort((a, b) => {
+    if (activeTab === 'checkpoints') {
+      const aIsFav = favoriteCheckpoints.includes(a.name)
+      const bIsFav = favoriteCheckpoints.includes(b.name)
+      
+      if (aIsFav && !bIsFav) return -1
+      if (!aIsFav && bIsFav) return 1
+    }
+    return a.name.localeCompare(b.name)
+  })
+
   // Group models by folder
-  const groupedModels = filteredModels.reduce((acc, model) => {
+  const groupedModels = sortedModels.reduce((acc, model) => {
     const folder = model.folder || '(root)'
     if (!acc[folder]) acc[folder] = []
     acc[folder].push(model)
     return acc
   }, {})
+
+  // Handle context menu
+  const handleContextMenu = (event, model) => {
+    event.preventDefault()
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      model
+    })
+  }
+
+  // Context menu actions
+  const handleHideModel = (model) => {
+    toggleHiddenModel(model.path)
+    setContextMenu(null)
+  }
+
+  const handleUpdateImage = (model) => {
+    setSelectedModelForUpload(model)
+    setUploadModalOpen(true)
+    setContextMenu(null)
+  }
+
+  const handleToggleFavorite = (model) => {
+    if (activeTab === 'checkpoints') {
+      toggleFavoriteCheckpoint(model.name)
+    }
+    setContextMenu(null)
+  }
 
   // Fetch CivitAI metadata for a model
   const fetchModelMetadata = async (model) => {
@@ -219,7 +288,9 @@ export default function ModelsPage() {
                       modelType={activeTab}
                       onSendToGeneration={sendToGeneration}
                       onFetchMetadata={fetchModelMetadata}
+                      onContextMenu={handleContextMenu}
                       metadata={modelDetails[model.path]}
+                      isFavorite={activeTab === 'checkpoints' && favoriteCheckpoints.includes(model.name)}
                     />
                   ))}
                 </div>
@@ -228,12 +299,131 @@ export default function ModelsPage() {
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div
+            ref={contextMenuRef}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="fixed z-[9999] bg-bg-secondary border border-border-primary rounded-lg shadow-xl overflow-hidden min-w-[180px]"
+            style={{
+              left: `${contextMenu.x}px`,
+              top: `${contextMenu.y}px`,
+            }}
+          >
+            <div className="py-1">
+              {/* Favorite */}
+              {activeTab === 'checkpoints' && (
+                <button
+                  onClick={() => handleToggleFavorite(contextMenu.model)}
+                  className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-3"
+                >
+                  <span className="text-lg">
+                    {favoriteCheckpoints.includes(contextMenu.model.name) ? '⭐' : '☆'}
+                  </span>
+                  <span>
+                    {favoriteCheckpoints.includes(contextMenu.model.name) ? 'Unfavorite' : 'Favorite'}
+                  </span>
+                </button>
+              )}
+
+              {/* Update Image */}
+              <button
+                onClick={() => handleUpdateImage(contextMenu.model)}
+                className="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-3"
+              >
+                <span className="text-lg">🖼️</span>
+                <span>Update Image</span>
+              </button>
+
+              {/* Hide */}
+              <button
+                onClick={() => handleHideModel(contextMenu.model)}
+                className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3"
+              >
+                <span className="text-lg">👁️‍🗨️</span>
+                <span>Hide Model</span>
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Upload Image Modal */}
+      <AnimatePresence>
+        {uploadModalOpen && selectedModelForUpload && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setUploadModalOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary rounded-xl border border-border-primary shadow-2xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+                <span>🖼️</span>
+                Update Model Image
+              </h2>
+
+              <p className="text-text-secondary text-sm mb-4">
+                Upload a custom preview image for <strong className="text-text-primary">{selectedModelForUpload.name}</strong>
+              </p>
+
+              <div className="space-y-4">
+                {/* File Input */}
+                <div className="border-2 border-dashed border-border-primary rounded-lg p-6 text-center hover:border-accent-primary transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    id="model-image-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        // TODO: Handle file upload to backend
+                        console.log('Upload file:', file)
+                        setUploadModalOpen(false)
+                      }
+                    }}
+                  />
+                  <label htmlFor="model-image-upload" className="cursor-pointer">
+                    <div className="text-4xl mb-2">📤</div>
+                    <p className="text-text-primary font-medium">Click to upload</p>
+                    <p className="text-text-tertiary text-xs mt-1">PNG, JPG, WEBP up to 10MB</p>
+                  </label>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setUploadModalOpen(false)}
+                    className="flex-1 px-4 py-2 rounded-lg bg-bg-tertiary text-text-primary hover:bg-bg-hover transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
 // Model Card Component
-function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, metadata }) {
+function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, onContextMenu, metadata, isFavorite }) {
   const [showDetails, setShowDetails] = useState(false)
   const [imageError, setImageError] = useState(false)
 
@@ -256,6 +446,7 @@ function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, meta
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
+      onContextMenu={(e) => onContextMenu(e, model)}
       className="bg-bg-tertiary rounded-lg border border-border-primary overflow-hidden hover:border-accent-primary transition-all duration-200 flex flex-col"
     >
       {/* Thumbnail */}
@@ -270,6 +461,14 @@ function ModelCard({ model, modelType, onSendToGeneration, onFetchMetadata, meta
         ) : (
           <div className="w-full h-full flex items-center justify-center text-6xl text-text-tertiary">
             {modelType === 'checkpoints' ? '🎯' : '🎛️'}
+          </div>
+        )}
+
+        {/* Favorite Badge */}
+        {isFavorite && (
+          <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+            <span>⭐</span>
+            <span>Favorite</span>
           </div>
         )}
 
