@@ -15,6 +15,9 @@ export const useGenerationStore = create(
       // Custom characters created by user
       customCharacters: [],
 
+      // Pending image metadata for "Generate Again" feature
+      pendingImageMetadata: null,
+
       // Actions
       setPrompt: (prompt) => set({ prompt }),
 
@@ -124,7 +127,14 @@ export const useGenerationStore = create(
         set({ customCharacters: updatedCharacters })
       },
 
-      getCustomCharacters: () => get().customCharacters
+      getCustomCharacters: () => get().customCharacters,
+
+      // Pending image metadata functions
+      setPendingImageMetadata: (metadata) => set({ pendingImageMetadata: metadata }),
+
+      clearPendingImageMetadata: () => set({ pendingImageMetadata: null }),
+
+      getPendingImageMetadata: () => get().pendingImageMetadata
     }),
     {
       name: 'kiko-creator-generation',
