@@ -25,7 +25,7 @@ export default function GeneratePage() {
     favoriteUpscalers,
     toggleFavoriteUpscaler,
   } = useSettingsStore();
-  const { prompt, negativePrompt, setPrompt, setNegativePrompt } =
+  const { prompt, negativePrompt, setPrompt, setNegativePrompt, getPendingImageMetadata, clearPendingImageMetadata } =
     useGenerationStore();
   const { addImage } = useGalleryStore();
   const { applyPreset: incrementPresetUsage } = usePresetStore();
@@ -33,6 +33,7 @@ export default function GeneratePage() {
 
   // Preset modal state
   const [showPresetModal, setShowPresetModal] = useState(false);
+  const [appliedPresetName, setAppliedPresetName] = useState(null);
 
   // Quality tags state (prepended to positive prompt)
   const [qualityTags, setQualityTags] = useState(
@@ -100,6 +101,8 @@ export default function GeneratePage() {
     current: 0,
     max: 0,
   }); // Current step / Max steps
+  const [nodeNames, setNodeNames] = useState({}); // Node ID to friendly name mapping
+  const [currentExecutingNode, setCurrentExecutingNode] = useState(null); // Current node being executed
   const wsRef = useRef(null); // WebSocket reference
   const resultsRef = useRef(null); // Results section reference for auto-scroll
   const processedPromptIds = useRef(new Set()); // Track processed prompt IDs to prevent duplicates
@@ -276,6 +279,45 @@ export default function GeneratePage() {
     };
     fetchViewTags();
   }, []);
+
+  // Load pending image metadata if coming from "Generate Again"
+  useEffect(() => {
+    const metadata = getPendingImageMetadata();
+    if (metadata) {
+      // Load prompts
+      if (metadata.prompt) setPrompt(metadata.prompt);
+      if (metadata.negativePrompt) setNegativePrompt(metadata.negativePrompt);
+
+      // Load settings
+      setSettings(prev => ({
+        ...prev,
+        checkpoint: metadata.model || prev.checkpoint,
+        steps: metadata.steps || prev.steps,
+        cfg: metadata.cfg || prev.cfg,
+        sampler: metadata.sampler || prev.sampler,
+        scheduler: metadata.scheduler || prev.scheduler,
+        width: metadata.width || prev.width,
+        height: metadata.height || prev.height,
+        seed: metadata.seed !== undefined ? metadata.seed : prev.seed,
+        clipSkip: metadata.clipSkip || prev.clipSkip,
+        hiresFix: metadata.hiresFix || prev.hiresFix,
+        refiner: metadata.refiner || prev.refiner
+      }));
+
+      // Load LoRAs
+      if (metadata.loras && metadata.loras.length > 0) {
+        setLoraSlots(metadata.loras);
+      }
+
+      // Clear metadata after loading
+      clearPendingImageMetadata();
+
+      // Show toast
+      if (window.showToast) {
+        window.showToast('✨ Loaded settings from image', 'success');
+      }
+    }
+  }, []); // Only run on mount
 
   // Sync checkpoints and upscalers from ComfyUI API on mount
   useEffect(() => {
@@ -472,11 +514,11 @@ export default function GeneratePage() {
   };
 
   const handleSwapDimensions = () => {
-    setSettings({
-      ...settings,
-      width: settings.height,
-      height: settings.width,
-    });
+    setSettings(prevSettings => ({
+      ...prevSettings,
+      width: prevSettings.height,
+      height: prevSettings.width,
+    }));
   };
 
   // Connect to ComfyUI WebSocket for real-time progress
@@ -518,14 +560,20 @@ export default function GeneratePage() {
           // Handle different message types
           if (message.type === "executing") {
             const msgPromptId = message.data?.prompt_id;
+            const nodeId = message.data?.node;
 
             // Store the promptId from the first executing message
             if (msgPromptId && !currentPromptId) {
               currentPromptId = msgPromptId;
             }
 
-            if (msgPromptId && message.data.node === null) {
-              // Execution finished - fetch final images
+            // Track current executing node
+            if (nodeId !== null && nodeId !== undefined) {
+              // Node is executing - update current node display
+              setCurrentExecutingNode(nodeId);
+            } else if (msgPromptId && nodeId === null) {
+              // Execution finished - clear current node and fetch final images
+              setCurrentExecutingNode(null);
               console.log("🎉 Generation complete");
               await fetchGeneratedImages(msgPromptId);
             }
@@ -715,6 +763,7 @@ export default function GeneratePage() {
     setGenerationProgress(0);
     setGenerationError(null);
     setGeneratedImages([]);
+    setCurrentExecutingNode(null); // Reset current node
 
     // Clear processed prompt IDs for this new generation
     processedPromptIds.current.clear();
@@ -760,13 +809,19 @@ export default function GeneratePage() {
       connectToComfyUIWebSocket(clientId);
 
       // Submit generation request with the SAME client_id
+      const requestSettings = { ...settings, prompt: finalPrompt, negativePrompt };
+      console.log('🚀 Submitting generation with dimensions:', {
+        width: requestSettings.width,
+        height: requestSettings.height
+      });
+
       const response = await fetch(`${API_URL}/api/generation/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          settings: { ...settings, prompt: finalPrompt, negativePrompt },
+          settings: requestSettings,
           loraSlots,
           comfyUIUrl: comfyui.apiUrl,
           clientId: clientId, // Pass our client_id to backend
@@ -780,6 +835,12 @@ export default function GeneratePage() {
 
       const result = await response.json();
       console.log("✅ Generation submitted");
+
+      // Store node names for progress tracking
+      if (result.nodeNames) {
+        setNodeNames(result.nodeNames);
+        console.log("📋 Node names loaded:", Object.keys(result.nodeNames).length, "nodes");
+      }
     } catch (error) {
       console.error("❌ Generation error:", error);
       setGenerationError(error.message);
@@ -851,6 +912,60 @@ export default function GeneratePage() {
     };
   };
 
+  // Send image settings to workflow
+  const handleSendToWorkflow = (image) => {
+    if (!image || !image.metadata) {
+      showToast('No metadata available for this image', 'error');
+      return;
+    }
+
+    const meta = image.metadata;
+
+    // Apply all settings from metadata
+    setSettings({
+      checkpoint: meta.model || settings.checkpoint,
+      steps: meta.steps || settings.steps,
+      cfg: meta.cfg || settings.cfg,
+      clipSkip: meta.clipSkip !== undefined ? meta.clipSkip : settings.clipSkip,
+      sampler: meta.sampler || settings.sampler,
+      scheduler: meta.scheduler || settings.scheduler,
+      width: meta.width || settings.width,
+      height: meta.height || settings.height,
+      seed: meta.seed !== undefined ? meta.seed : settings.seed,
+      randomSeed: false, // Use the specific seed from the image
+      batchSize: meta.batchSize || settings.batchSize,
+      hiresFix: meta.hiresFix || {
+        enabled: false,
+        model: "4x-UltraSharp",
+        scale: 2.0,
+        denoise: 0.5,
+        steps: 20,
+        randomSeed: false,
+      },
+      refiner: meta.refiner || {
+        enabled: false,
+        model: "",
+        addNoise: false,
+        ratio: 0.8,
+      }
+    });
+
+    // Apply LoRAs
+    if (meta.loras && Array.isArray(meta.loras)) {
+      setLoraSlots(meta.loras.map((slot, idx) => ({
+        ...slot,
+        id: Date.now() + idx
+      })));
+    } else {
+      setLoraSlots([]);
+    }
+
+    // Clear applied preset name since we're loading from image
+    setAppliedPresetName(null);
+
+    showToast('Settings loaded from image', 'success');
+  };
+
   // Apply preset to current settings
   const handleApplyPreset = (preset) => {
     if (!preset || !preset.settings) {
@@ -915,6 +1030,9 @@ export default function GeneratePage() {
     // Increment usage count
     incrementPresetUsage(preset.id);
 
+    // Set the applied preset name
+    setAppliedPresetName(preset.name);
+
     // Show success message
     if (warnings.length === 0) {
       showToast(`Applied preset: ${preset.name}`, 'success');
@@ -925,6 +1043,55 @@ export default function GeneratePage() {
         warnings.forEach(warning => showToast(warning, 'warning'));
       }, 500);
     }
+  };
+
+  // Reset to default settings
+  const handleResetToDefaults = () => {
+    setSettings({
+      checkpoint: defaults.checkpoint || "",
+      steps: defaults.steps || 20,
+      cfg: defaults.cfg || 7,
+      clipSkip: defaults.clipSkip || -2,
+      sampler: defaults.sampler || "euler_ancestral",
+      scheduler: defaults.scheduler || "normal",
+      width: defaults.width || 512,
+      height: defaults.height || 512,
+      seed: -1,
+      randomSeed: true,
+      batchSize: 1,
+      hiresFix: {
+        enabled: false,
+        model: "4x-UltraSharp",
+        scale: 2.0,
+        denoise: 0.5,
+        steps: 20,
+        randomSeed: false,
+      },
+      refiner: {
+        enabled: false,
+        model: "",
+        addNoise: false,
+        ratio: 0.8,
+      },
+    });
+
+    setLoraSlots([]);
+    setAppliedPresetName(null);
+    setQualityTags("masterpiece, best quality, ultra-detailed, 8k resolution, high dynamic range, absurdres, stunningly beautiful, intricate details, sharp focus, detailed eyes, cinematic color grading, high-resolution texture, ");
+
+    // Clear prompts
+    setPrompt("");
+    setNegativePrompt("");
+
+    // Reset view selections
+    setViewSelections({
+      angle: "none",
+      camera: "none",
+      background: "none",
+      style: "none",
+    });
+
+    showToast('Reset to default settings', 'info');
   };
 
   return (
@@ -957,9 +1124,34 @@ export default function GeneratePage() {
                 <span>⚙️</span>
                 <span className="hidden sm:inline">Presets</span>
               </motion.button>
+              <motion.button
+                onClick={handleResetToDefaults}
+                className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-orange-500/20 to-red-500/20 hover:from-orange-500/30 hover:to-red-500/30 border border-orange-500/30 hover:border-orange-500/50 text-text-primary font-medium transition-all duration-200 flex items-center gap-2 shadow-lg shadow-orange-500/10"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                title="Reset all settings to defaults"
+              >
+                <span>🔄</span>
+                <span className="hidden sm:inline">Reset</span>
+              </motion.button>
             </div>
           </div>
-          <p className="text-text-secondary text-sm md:text-base">Create stunning images with advanced diffusion models</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-text-secondary text-sm md:text-base">Create stunning images with advanced diffusion models</p>
+            {appliedPresetName && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-accent-primary/20 to-accent-secondary/20 border border-accent-primary/30">
+                <span className="text-accent-primary text-xs font-medium">📋 Preset:</span>
+                <span className="text-text-primary text-xs font-semibold">{appliedPresetName}</span>
+                <button
+                  onClick={() => setAppliedPresetName(null)}
+                  className="ml-1 text-text-secondary hover:text-text-primary transition-colors"
+                  title="Clear preset indicator"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* Animated background particles */}
@@ -1023,7 +1215,7 @@ export default function GeneratePage() {
               disabled={isGenerating}
               className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-lg shadow-lg shadow-green-500/30 transition-all duration-200 flex items-center gap-2"
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.98 }}
             >
               {isGenerating ? (
                 <>
@@ -1655,7 +1847,7 @@ export default function GeneratePage() {
                   setSettings({ ...settings, width: selected.width, height: selected.height })
                 }
               }}
-              className="w-full px-3 py-2 rounded-lg bg-bg-tertiary text-text-primary border border-border-primary focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/20 transition-all duration-200 outline-none text-sm relative z-20"
+              className="w-full bg-bg-tertiary text-text-primary rounded-lg px-4 py-2.5 border border-ui-border focus:border-primary-main focus:ring-2 focus:ring-primary-main/20 transition-all"
             >
               <option value="custom">Custom Resolution</option>
               <optgroup label="SDXL Square">
@@ -1836,7 +2028,7 @@ export default function GeneratePage() {
           <motion.button
             onClick={handleGenerate}
             disabled={isGenerating || !settings.checkpoint || !prompt.trim()}
-            whileHover={{ scale: isGenerating || !settings.checkpoint || !prompt.trim() ? 1 : 1.02, boxShadow: "0 20px 60px rgba(168, 85, 247, 0.4)" }}
+            whileHover={{ scale: isGenerating || !settings.checkpoint || !prompt.trim() ? 1 : 1.05, boxShadow: "0 20px 60px rgba(168, 85, 247, 0.4)" }}
             whileTap={{ scale: isGenerating || !settings.checkpoint || !prompt.trim() ? 1 : 0.98 }}
             className={`w-full py-6 rounded-2xl font-bold text-xl shadow-2xl transition-all relative overflow-hidden ${
               isGenerating || !settings.checkpoint || !prompt.trim()
@@ -1930,11 +2122,19 @@ export default function GeneratePage() {
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => handleSendToWorkflow(image)}
+                            className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs backdrop-blur-sm"
+                            title="Send to Workflow"
+                          >
+                            ⚙️
+                          </button>
+                          <button
                             onClick={() => {
                               setLightboxImage(image)
                               setLightboxIndex(index)
                             }}
                             className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs backdrop-blur-sm"
+                            title="View"
                           >
                             🔍
                           </button>
@@ -1946,12 +2146,14 @@ export default function GeneratePage() {
                               a.click()
                             }}
                             className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs backdrop-blur-sm"
+                            title="Download"
                           >
                             ⬇️
                           </button>
                           <button
                             onClick={() => navigator.clipboard.writeText(image.url)}
                             className="p-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs backdrop-blur-sm"
+                            title="Copy URL"
                           >
                             📋
                           </button>
@@ -1969,8 +2171,23 @@ export default function GeneratePage() {
                         transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                         className="w-16 h-16 border-4 border-accent-primary border-t-transparent rounded-full"
                       />
-                      <div className="text-xl text-text-primary">
-                        Generating... {generationProgress}%
+                      <div className="text-center">
+                        <div className="text-xl text-text-primary mb-2">
+                          Generating... {generationProgress}%
+                        </div>
+                        {progressDetails.current > 0 && progressDetails.max > 0 && (
+                          <div className="text-sm text-text-tertiary">
+                            Step {progressDetails.current} / {progressDetails.max}
+                          </div>
+                        )}
+                        {currentExecutingNode && nodeNames[currentExecutingNode] && (
+                          <div className="mt-3 px-4 py-2 bg-ocean-500/10 border border-ocean-500/30 rounded-lg">
+                            <div className="text-xs text-text-tertiary mb-1">Current:</div>
+                            <div className="text-sm text-ocean-300 font-medium">
+                              {nodeNames[currentExecutingNode]}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
