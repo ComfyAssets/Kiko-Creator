@@ -628,5 +628,529 @@ export function backupDatabase() {
   }
 }
 
+// ======================================
+// MOBILE API OPERATIONS
+// ======================================
+
+// Device operations
+
+/**
+ * Register a new mobile device
+ * @param {Object} device - { id, deviceName, platform, token, pushToken }
+ * @returns {Object} - Created device record
+ */
+export function registerDevice(device) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const stmt = db.prepare(`
+    INSERT INTO devices (id, device_name, platform, token, push_token, created_at, last_seen, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    RETURNING *
+  `)
+
+  return stmt.get(
+    device.id,
+    device.deviceName,
+    device.platform,
+    device.token,
+    device.pushToken || null,
+    now,
+    now
+  )
+}
+
+/**
+ * Verify device token and update last_seen
+ * @param {string} token - Bearer token
+ * @returns {Object|null} - Device record or null
+ */
+export function verifyDeviceToken(token) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  // Update last_seen and return device
+  const stmt = db.prepare(`
+    UPDATE devices
+    SET last_seen = ?
+    WHERE token = ? AND is_active = 1
+    RETURNING *
+  `)
+
+  return stmt.get(now, token)
+}
+
+/**
+ * Update device push token
+ * @param {string} deviceId - Device ID
+ * @param {string} pushToken - FCM/APNs token
+ * @returns {boolean} - Success flag
+ */
+export function updateDevicePushToken(deviceId, pushToken) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    UPDATE devices
+    SET push_token = ?, last_seen = ?
+    WHERE id = ?
+  `)
+
+  const result = stmt.run(pushToken, Date.now(), deviceId)
+  return result.changes > 0
+}
+
+/**
+ * Get device by ID
+ * @param {string} deviceId - Device ID
+ * @returns {Object|null} - Device record or null
+ */
+export function getDevice(deviceId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare('SELECT * FROM devices WHERE id = ? AND is_active = 1')
+  return stmt.get(deviceId)
+}
+
+/**
+ * Deactivate a device (soft delete)
+ * @param {string} deviceId - Device ID
+ * @returns {boolean} - Success flag
+ */
+export function deactivateDevice(deviceId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    UPDATE devices
+    SET is_active = 0
+    WHERE id = ?
+  `)
+
+  const result = stmt.run(deviceId)
+  return result.changes > 0
+}
+
+// Preset operations
+
+/**
+ * Create a new preset
+ * @param {Object} preset - { id, deviceId, name, settings, thumbnailPath }
+ * @returns {Object} - Created preset record
+ */
+export function createPreset(preset) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const stmt = db.prepare(`
+    INSERT INTO presets (id, device_id, name, settings, thumbnail_path, created_at, updated_at, deleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+    RETURNING *
+  `)
+
+  const result = stmt.get(
+    preset.id,
+    preset.deviceId,
+    preset.name,
+    JSON.stringify(preset.settings),
+    preset.thumbnailPath || null,
+    now,
+    now
+  )
+
+  return {
+    ...result,
+    settings: JSON.parse(result.settings)
+  }
+}
+
+/**
+ * Update an existing preset
+ * @param {string} presetId - Preset ID
+ * @param {Object} updates - { name, settings, thumbnailPath }
+ * @returns {Object|null} - Updated preset record or null
+ */
+export function updatePreset(presetId, updates) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const stmt = db.prepare(`
+    UPDATE presets
+    SET name = COALESCE(?, name),
+        settings = COALESCE(?, settings),
+        thumbnail_path = COALESCE(?, thumbnail_path),
+        updated_at = ?
+    WHERE id = ? AND deleted = 0
+    RETURNING *
+  `)
+
+  const result = stmt.get(
+    updates.name || null,
+    updates.settings ? JSON.stringify(updates.settings) : null,
+    updates.thumbnailPath || null,
+    now,
+    presetId
+  )
+
+  if (!result) return null
+
+  return {
+    ...result,
+    settings: JSON.parse(result.settings)
+  }
+}
+
+/**
+ * Delete a preset (soft delete)
+ * @param {string} presetId - Preset ID
+ * @returns {boolean} - Success flag
+ */
+export function deletePreset(presetId) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const stmt = db.prepare(`
+    UPDATE presets
+    SET deleted = 1, updated_at = ?
+    WHERE id = ?
+  `)
+
+  const result = stmt.run(now, presetId)
+  return result.changes > 0
+}
+
+/**
+ * Get all presets for a device
+ * @param {string} deviceId - Device ID
+ * @param {boolean} includeDeleted - Include soft-deleted presets
+ * @returns {Array} - Array of preset records
+ */
+export function getPresets(deviceId, includeDeleted = false) {
+  const db = getDatabase()
+
+  const query = `
+    SELECT * FROM presets
+    WHERE device_id = ?
+    ${includeDeleted ? '' : 'AND deleted = 0'}
+    ORDER BY updated_at DESC
+  `
+
+  const stmt = db.prepare(query)
+  const rows = stmt.all(deviceId)
+
+  return rows.map((row) => ({
+    ...row,
+    settings: JSON.parse(row.settings)
+  }))
+}
+
+/**
+ * Get presets modified since timestamp (for delta sync)
+ * @param {string} deviceId - Device ID
+ * @param {number} since - Timestamp in milliseconds
+ * @returns {Array} - Array of modified/deleted presets
+ */
+export function getPresetsModifiedSince(deviceId, since) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    SELECT * FROM presets
+    WHERE device_id = ? AND updated_at > ?
+    ORDER BY updated_at ASC
+  `)
+
+  const rows = stmt.all(deviceId, since)
+
+  return rows.map((row) => ({
+    ...row,
+    settings: row.deleted ? undefined : JSON.parse(row.settings)
+  }))
+}
+
+/**
+ * Get a single preset by ID
+ * @param {string} presetId - Preset ID
+ * @returns {Object|null} - Preset record or null
+ */
+export function getPreset(presetId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare('SELECT * FROM presets WHERE id = ? AND deleted = 0')
+  const row = stmt.get(presetId)
+
+  if (!row) return null
+
+  return {
+    ...row,
+    settings: JSON.parse(row.settings)
+  }
+}
+
+// Image operations
+
+/**
+ * Create a new image record
+ * @param {Object} image - Image metadata object
+ * @returns {Object} - Created image record
+ */
+export function createImage(image) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    INSERT INTO images (
+      id, device_id, preset_id, filename, filepath, width, height, filesize,
+      prompt, negative_prompt, settings, thumbnail_path, created_at, deleted
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    RETURNING *
+  `)
+
+  const result = stmt.get(
+    image.id,
+    image.deviceId,
+    image.presetId || null,
+    image.filename,
+    image.filepath,
+    image.width,
+    image.height,
+    image.filesize,
+    image.prompt || null,
+    image.negativePrompt || null,
+    image.settings ? JSON.stringify(image.settings) : null,
+    image.thumbnailPath || null,
+    Date.now()
+  )
+
+  return {
+    ...result,
+    settings: result.settings ? JSON.parse(result.settings) : null
+  }
+}
+
+/**
+ * Get all images for a device with pagination
+ * @param {string} deviceId - Device ID
+ * @param {Object} options - { limit, offset, presetId }
+ * @returns {Array} - Array of image records
+ */
+export function getImages(deviceId, options = {}) {
+  const db = getDatabase()
+
+  let query = `
+    SELECT * FROM images
+    WHERE device_id = ? AND deleted = 0
+  `
+  const params = [deviceId]
+
+  if (options.presetId) {
+    query += ' AND preset_id = ?'
+    params.push(options.presetId)
+  }
+
+  query += ' ORDER BY created_at DESC'
+
+  if (options.limit) {
+    query += ' LIMIT ?'
+    params.push(options.limit)
+  }
+
+  if (options.offset) {
+    query += ' OFFSET ?'
+    params.push(options.offset)
+  }
+
+  const stmt = db.prepare(query)
+  const rows = stmt.all(...params)
+
+  return rows.map((row) => ({
+    ...row,
+    settings: row.settings ? JSON.parse(row.settings) : null
+  }))
+}
+
+/**
+ * Get a single image by ID
+ * @param {string} imageId - Image ID
+ * @returns {Object|null} - Image record or null
+ */
+export function getImage(imageId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare('SELECT * FROM images WHERE id = ? AND deleted = 0')
+  const row = stmt.get(imageId)
+
+  if (!row) return null
+
+  return {
+    ...row,
+    settings: row.settings ? JSON.parse(row.settings) : null
+  }
+}
+
+/**
+ * Delete an image (soft delete)
+ * @param {string} imageId - Image ID
+ * @returns {boolean} - Success flag
+ */
+export function deleteImage(imageId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    UPDATE images
+    SET deleted = 1
+    WHERE id = ?
+  `)
+
+  const result = stmt.run(imageId)
+  return result.changes > 0
+}
+
+// Generation job operations
+
+/**
+ * Create a new generation job
+ * @param {Object} job - Generation job object
+ * @returns {Object} - Created job record
+ */
+export function createGenerationJob(job) {
+  const db = getDatabase()
+
+  const stmt = db.prepare(`
+    INSERT INTO generation_jobs (
+      id, device_id, preset_id, status, progress, prompt, settings, created_at
+    )
+    VALUES (?, ?, ?, 'queued', 0, ?, ?, ?)
+    RETURNING *
+  `)
+
+  const result = stmt.get(
+    job.id,
+    job.deviceId,
+    job.presetId || null,
+    job.prompt,
+    JSON.stringify(job.settings),
+    Date.now()
+  )
+
+  return {
+    ...result,
+    settings: JSON.parse(result.settings)
+  }
+}
+
+/**
+ * Update generation job status
+ * @param {string} jobId - Job ID
+ * @param {Object} updates - { status, progress, resultImageId, errorMessage }
+ * @returns {Object|null} - Updated job record or null
+ */
+export function updateGenerationJob(jobId, updates) {
+  const db = getDatabase()
+  const now = Date.now()
+
+  const fields = []
+  const params = []
+
+  if (updates.status !== undefined) {
+    fields.push('status = ?')
+    params.push(updates.status)
+
+    if (updates.status === 'executing' && !updates.startedAt) {
+      fields.push('started_at = ?')
+      params.push(now)
+    }
+
+    if (['completed', 'failed', 'cancelled'].includes(updates.status)) {
+      fields.push('completed_at = ?')
+      params.push(now)
+    }
+  }
+
+  if (updates.progress !== undefined) {
+    fields.push('progress = ?')
+    params.push(updates.progress)
+  }
+
+  if (updates.resultImageId !== undefined) {
+    fields.push('result_image_id = ?')
+    params.push(updates.resultImageId)
+  }
+
+  if (updates.errorMessage !== undefined) {
+    fields.push('error_message = ?')
+    params.push(updates.errorMessage)
+  }
+
+  if (fields.length === 0) return null
+
+  params.push(jobId)
+
+  const stmt = db.prepare(`
+    UPDATE generation_jobs
+    SET ${fields.join(', ')}
+    WHERE id = ?
+    RETURNING *
+  `)
+
+  const result = stmt.get(...params)
+
+  if (!result) return null
+
+  return {
+    ...result,
+    settings: JSON.parse(result.settings)
+  }
+}
+
+/**
+ * Get generation job by ID
+ * @param {string} jobId - Job ID
+ * @returns {Object|null} - Job record or null
+ */
+export function getGenerationJob(jobId) {
+  const db = getDatabase()
+
+  const stmt = db.prepare('SELECT * FROM generation_jobs WHERE id = ?')
+  const row = stmt.get(jobId)
+
+  if (!row) return null
+
+  return {
+    ...row,
+    settings: JSON.parse(row.settings)
+  }
+}
+
+/**
+ * Get all generation jobs for a device
+ * @param {string} deviceId - Device ID
+ * @param {Object} options - { limit, status }
+ * @returns {Array} - Array of job records
+ */
+export function getGenerationJobs(deviceId, options = {}) {
+  const db = getDatabase()
+
+  let query = 'SELECT * FROM generation_jobs WHERE device_id = ?'
+  const params = [deviceId]
+
+  if (options.status) {
+    query += ' AND status = ?'
+    params.push(options.status)
+  }
+
+  query += ' ORDER BY created_at DESC'
+
+  if (options.limit) {
+    query += ' LIMIT ?'
+    params.push(options.limit)
+  }
+
+  const stmt = db.prepare(query)
+  const rows = stmt.all(...params)
+
+  return rows.map((row) => ({
+    ...row,
+    settings: JSON.parse(row.settings)
+  }))
+}
+
 // Export database instance for advanced queries
 export { getDatabase }
