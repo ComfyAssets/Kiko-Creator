@@ -241,7 +241,7 @@ export default function TagAutocomplete({ value, onChange, placeholder, classNam
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-full mt-1 bg-bg-secondary border border-border-primary rounded-lg shadow-lg max-h-64 overflow-auto"
+            className="absolute z-[300] w-full mt-1 bg-bg-secondary border border-border-primary rounded-lg shadow-lg max-h-64 overflow-auto"
             ref={suggestionsRef}
           >
             {suggestions.map((suggestion, index) => (
