@@ -63,27 +63,25 @@ export default function EmbeddingsMenu({ onInsert }) {
   return (
     <div className="relative" ref={menuRef}>
       {/* Trigger Button */}
-      <motion.button
+      <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="px-3 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary hover:border-accent-primary rounded-lg transition-all duration-200 flex items-center gap-2 text-text-secondary hover:text-text-primary"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
         title="Insert embedding"
       >
         <span className="text-lg">🎨</span>
         <span className="text-sm font-medium">Embeddings</span>
-      </motion.button>
+      </button>
 
       {/* Dropdown Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 mt-2 bg-bg-secondary border border-border-primary rounded-lg shadow-lg overflow-hidden min-w-[250px]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+            className="absolute z-[250] mt-2 bg-bg-secondary border border-border-primary rounded-lg shadow-lg overflow-hidden min-w-[250px]"
           >
             {/* Search Input */}
             <div className="p-3 border-b border-border-primary bg-bg-tertiary sticky top-0 z-10">
@@ -109,10 +107,9 @@ export default function EmbeddingsMenu({ onInsert }) {
                   const isFavorite = favoriteEmbeddings.includes(embedding.name)
 
                   return (
-                    <motion.div
+                    <div
                       key={embedding.name}
                       className="px-4 py-2 hover:bg-bg-hover transition-colors duration-150"
-                      whileHover={{ x: 2 }}
                     >
                       <div className="flex items-center gap-2">
                         {/* Star Button */}
@@ -124,7 +121,7 @@ export default function EmbeddingsMenu({ onInsert }) {
                           className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded hover:bg-bg-tertiary transition-colors"
                           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                         >
-                          <span className={`text-lg transition-all ${isFavorite ? 'text-yellow-400 scale-110' : 'text-text-tertiary hover:text-yellow-400'}`}>
+                          <span className={`text-lg transition-colors ${isFavorite ? 'text-yellow-400' : 'text-text-tertiary hover:text-yellow-400'}`}>
                             {isFavorite ? '⭐' : '☆'}
                           </span>
                         </button>
@@ -167,7 +164,7 @@ export default function EmbeddingsMenu({ onInsert }) {
                           </button>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   )
                 })
               )}
