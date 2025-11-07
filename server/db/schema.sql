@@ -72,3 +72,88 @@ INSERT OR IGNORE INTO app_metadata (key, value, updated_at) VALUES
   ('schema_version', '1', datetime('now')),
   ('last_scan', '', datetime('now')),
   ('total_models', '0', datetime('now'));
+
+-- ======================================
+-- MOBILE API TABLES
+-- ======================================
+
+-- Devices table: Mobile device authentication
+CREATE TABLE IF NOT EXISTS devices (
+  id TEXT PRIMARY KEY,                   -- UUID v4
+  device_name TEXT NOT NULL,             -- User-friendly device name
+  platform TEXT NOT NULL CHECK(platform IN ('android', 'ios')),
+  token TEXT UNIQUE NOT NULL,            -- Bearer token for authentication
+  push_token TEXT,                       -- FCM/APNs push notification token
+  created_at INTEGER NOT NULL,           -- Unix timestamp (milliseconds)
+  last_seen INTEGER NOT NULL,            -- Unix timestamp (milliseconds)
+  is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1))  -- Soft delete flag
+);
+
+CREATE INDEX IF NOT EXISTS idx_devices_token ON devices(token);
+CREATE INDEX IF NOT EXISTS idx_devices_platform ON devices(platform);
+CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen DESC);
+
+-- Presets table: User generation presets/profiles
+CREATE TABLE IF NOT EXISTS presets (
+  id TEXT PRIMARY KEY,                   -- UUID v4
+  device_id TEXT NOT NULL,               -- FK to devices.id (owner device)
+  name TEXT NOT NULL,                    -- Preset name
+  settings TEXT NOT NULL,                -- JSON blob of generation settings
+  thumbnail_path TEXT,                   -- Local path to preset thumbnail
+  created_at INTEGER NOT NULL,           -- Unix timestamp (milliseconds)
+  updated_at INTEGER NOT NULL,           -- Unix timestamp (milliseconds)
+  deleted INTEGER DEFAULT 0 CHECK(deleted IN (0, 1)),  -- Soft delete flag
+  FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_presets_device_id ON presets(device_id);
+CREATE INDEX IF NOT EXISTS idx_presets_updated_at ON presets(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_presets_deleted ON presets(deleted);
+
+-- Images table: Generated images metadata
+CREATE TABLE IF NOT EXISTS images (
+  id TEXT PRIMARY KEY,                   -- UUID v4
+  device_id TEXT NOT NULL,               -- FK to devices.id (owner device)
+  preset_id TEXT,                        -- FK to presets.id (nullable)
+  filename TEXT NOT NULL,                -- Original filename
+  filepath TEXT NOT NULL UNIQUE,         -- Full filesystem path
+  width INTEGER NOT NULL,                -- Image width in pixels
+  height INTEGER NOT NULL,               -- Image height in pixels
+  filesize INTEGER NOT NULL,             -- File size in bytes
+  prompt TEXT,                           -- Generation prompt
+  negative_prompt TEXT,                  -- Negative prompt
+  settings TEXT,                         -- JSON blob of generation settings
+  thumbnail_path TEXT,                   -- Local path to thumbnail
+  created_at INTEGER NOT NULL,           -- Unix timestamp (milliseconds)
+  deleted INTEGER DEFAULT 0 CHECK(deleted IN (0, 1)),  -- Soft delete flag
+  FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+  FOREIGN KEY (preset_id) REFERENCES presets(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_images_device_id ON images(device_id);
+CREATE INDEX IF NOT EXISTS idx_images_preset_id ON images(preset_id);
+CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_images_deleted ON images(deleted);
+
+-- Generation jobs table: Track generation requests
+CREATE TABLE IF NOT EXISTS generation_jobs (
+  id TEXT PRIMARY KEY,                   -- UUID v4 or ComfyUI prompt_id
+  device_id TEXT NOT NULL,               -- FK to devices.id
+  preset_id TEXT,                        -- FK to presets.id (nullable)
+  status TEXT NOT NULL CHECK(status IN ('queued', 'executing', 'completed', 'failed', 'cancelled')),
+  progress INTEGER DEFAULT 0,            -- Progress percentage (0-100)
+  prompt TEXT NOT NULL,                  -- Generation prompt
+  settings TEXT NOT NULL,                -- JSON blob of generation settings
+  result_image_id TEXT,                  -- FK to images.id (nullable, set on completion)
+  error_message TEXT,                    -- Error details if failed
+  created_at INTEGER NOT NULL,           -- Unix timestamp (milliseconds)
+  started_at INTEGER,                    -- Unix timestamp (milliseconds)
+  completed_at INTEGER,                  -- Unix timestamp (milliseconds)
+  FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE,
+  FOREIGN KEY (preset_id) REFERENCES presets(id) ON DELETE SET NULL,
+  FOREIGN KEY (result_image_id) REFERENCES images(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_device_id ON generation_jobs(device_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON generation_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_created_at ON generation_jobs(created_at DESC);
