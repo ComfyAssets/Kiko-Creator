@@ -1,3 +1,11 @@
+// Helper to safely format numbers, handling NaN and undefined
+const formatNumber = (value, defaultValue = 'N/A', decimals = null) => {
+  if (value === undefined || value === null || isNaN(value)) {
+    return defaultValue
+  }
+  return decimals !== null ? Number(value).toFixed(decimals) : value
+}
+
 export default function SettingsSummary({ settings }) {
   if (!settings) {
     return (
@@ -49,7 +57,7 @@ export default function SettingsSummary({ settings }) {
                   {lora.lora}
                 </span>
                 <span className="text-text-tertiary ml-2 flex-shrink-0">
-                  {lora.strength.toFixed(2)}
+                  {formatNumber(lora.strength, '1.00', 2)}
                 </span>
               </div>
             ))}
@@ -65,11 +73,11 @@ export default function SettingsSummary({ settings }) {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex justify-between">
             <span className="text-text-tertiary">Steps:</span>
-            <span className="text-text-primary font-medium">{settings.steps || 'N/A'}</span>
+            <span className="text-text-primary font-medium">{formatNumber(settings.steps)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-tertiary">CFG:</span>
-            <span className="text-text-primary font-medium">{settings.cfg || 'N/A'}</span>
+            <span className="text-text-primary font-medium">{formatNumber(settings.cfg)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-tertiary">Sampler:</span>
@@ -86,17 +94,17 @@ export default function SettingsSummary({ settings }) {
           <div className="flex justify-between">
             <span className="text-text-tertiary">Resolution:</span>
             <span className="text-text-primary font-medium">
-              {settings.width}×{settings.height}
+              {formatNumber(settings.width, '?')}×{formatNumber(settings.height, '?')}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-text-tertiary">Batch:</span>
-            <span className="text-text-primary font-medium">{settings.batchSize || 1}</span>
+            <span className="text-text-primary font-medium">{formatNumber(settings.batchSize, 1)}</span>
           </div>
           <div className="flex justify-between col-span-2">
             <span className="text-text-tertiary">Seed:</span>
             <span className="text-text-primary font-medium">
-              {settings.randomSeed ? 'Random' : settings.seed}
+              {settings.randomSeed ? 'Random' : formatNumber(settings.seed, 'N/A')}
             </span>
           </div>
         </div>
@@ -115,10 +123,10 @@ export default function SettingsSummary({ settings }) {
                   <span>🔍</span> Hires Fix
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-text-tertiary ml-5">
-                  <span>Model: {settings.hiresFix.model}</span>
-                  <span>Scale: {settings.hiresFix.scale}×</span>
-                  <span>Denoise: {settings.hiresFix.denoise}</span>
-                  <span>Steps: {settings.hiresFix.steps}</span>
+                  <span>Model: {settings.hiresFix.model || 'N/A'}</span>
+                  <span>Scale: {formatNumber(settings.hiresFix.scale, '2.0', 1)}×</span>
+                  <span>Denoise: {formatNumber(settings.hiresFix.denoise, '0.5', 2)}</span>
+                  <span>Steps: {formatNumber(settings.hiresFix.steps, '20')}</span>
                 </div>
               </div>
             )}
@@ -128,8 +136,8 @@ export default function SettingsSummary({ settings }) {
                   <span>✨</span> Refiner
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-text-tertiary ml-5">
-                  <span className="col-span-2 truncate">Model: {settings.refiner.model}</span>
-                  <span>Ratio: {settings.refiner.ratio}</span>
+                  <span className="col-span-2 truncate">Model: {settings.refiner.model || 'N/A'}</span>
+                  <span>Ratio: {formatNumber(settings.refiner.ratio, '0.8', 2)}</span>
                   <span>Add Noise: {settings.refiner.addNoise ? 'Yes' : 'No'}</span>
                 </div>
               </div>

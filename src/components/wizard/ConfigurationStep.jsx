@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { saveSettings } from '../../services/api'
 import SearchableModelDropdown from './SearchableModelDropdown'
 import { RESOLUTION_PRESETS, RESOLUTIONS_BY_CATEGORY } from '../../constants/resolutions'
+import { SAMPLERS, SCHEDULERS } from '../../constants/generation'
 
 export default function ConfigurationStep({ onBack }) {
   const navigate = useNavigate()
@@ -41,25 +42,7 @@ export default function ConfigurationStep({ onBack }) {
     }
   }
 
-  const samplers = [
-    'euler',
-    'euler_ancestral',
-    'heun',
-    'dpm_2',
-    'dpm_2_ancestral',
-    'lms',
-    'dpm_fast',
-    'dpm_adaptive',
-    'dpmpp_2s_ancestral',
-    'dpmpp_sde',
-    'dpmpp_2m',
-    'ddim',
-    'uni_pc'
-  ]
-
-  const schedulers = ['normal', 'karras', 'exponential', 'simple']
-
-  // Use shared resolution presets
+  // Use shared generation constants and resolution presets
   const categories = Object.keys(RESOLUTIONS_BY_CATEGORY)
 
   return (
@@ -169,7 +152,7 @@ export default function ConfigurationStep({ onBack }) {
               outline-none
             "
           >
-            {samplers.map((sampler) => (
+            {SAMPLERS.map((sampler) => (
               <option key={sampler} value={sampler}>
                 {sampler}
               </option>
@@ -198,7 +181,7 @@ export default function ConfigurationStep({ onBack }) {
               outline-none
             "
           >
-            {schedulers.map((scheduler) => (
+            {SCHEDULERS.map((scheduler) => (
               <option key={scheduler} value={scheduler}>
                 {scheduler}
               </option>
